@@ -1,5 +1,10 @@
 import { MobileDisclosure } from "./Layout";
+import {
+  PRINT_LAYERS,
+  usePrinterAnimation,
+} from "../hooks/usePrinterAnimation";
 export function Hero() {
+  const { machineRef, layer, percent, reducedMotion } = usePrinterAnimation();
   return (
     <section className="hero" id="home">
       <div className="container hero-grid">
@@ -36,7 +41,8 @@ export function Hero() {
         </div>
         <div
           className="machine"
-          aria-label="Animated illustration of a 3D printer"
+          ref={machineRef}
+          aria-label="Illustrative 3D printer animation"
         >
           <div className="machine-glow" />
           <div className="printer">
@@ -48,13 +54,30 @@ export function Hero() {
           <div className="printer-status">
             <div className="printer-status-heading">
               <span className="pulse" />
-              <strong>Print in progress</strong>
-              <span>76%</span>
+              <strong>
+                {reducedMotion
+                  ? "Printer preview"
+                  : layer === PRINT_LAYERS
+                    ? "Print complete"
+                    : "Print in progress"}
+              </strong>
+              <span>{percent}%</span>
             </div>
-            <div className="printer-status-track">
+            <div
+              className="printer-status-track"
+              role="progressbar"
+              aria-label="Illustrative print progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+              aria-valuetext={`Layer ${layer} of ${PRINT_LAYERS}. Animated demonstration.`}
+            >
               <span />
             </div>
-            <small>Layer 142 of 187 · Printer animation</small>
+            <small>
+              Layer {layer} of {PRINT_LAYERS} ·{" "}
+              {reducedMotion ? "Reduced motion" : "Printer animation"}
+            </small>
           </div>
         </div>
       </div>

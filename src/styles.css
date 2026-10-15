@@ -2134,7 +2134,10 @@ footer[id] {
 .printer-status-track span {
   background: #9f83f0;
   border-radius: 20px;
-  width: 76%;
+  width: 100%;
+  transform: scaleX(var(--print-progress, 0.76));
+  transform-origin: left;
+  transition: transform 160ms linear;
   height: 100%;
   display: block;
 }
@@ -2299,4 +2302,41 @@ footer[id] {
 .cart-note {
   color: #a79cbf;
   font-size: 11px;
+}
+
+/* The print head scans while the object and status share the same layer progress. */
+.printer .head {
+  left: 20%;
+  animation: printer-sweep 2.4s ease-in-out infinite alternate;
+}
+.printer .print-object {
+  animation: none;
+  clip-path: inset(0);
+  transform: scaleY(var(--print-progress, 0.76));
+  transform-origin: bottom;
+  transition: transform 160ms linear;
+}
+.printer-status .pulse {
+  animation: printer-pulse 1.8s ease-in-out infinite;
+}
+@keyframes printer-sweep {
+  to {
+    left: calc(80% - 66px);
+  }
+}
+@keyframes printer-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .machine,
+  .printer .head,
+  .printer-status .pulse {
+    animation: none !important;
+  }
+  .printer .print-object,
+  .printer-status-track span {
+    transition: none !important;
+  }
 }
