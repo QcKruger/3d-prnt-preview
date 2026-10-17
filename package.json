@@ -1,0 +1,51 @@
+{
+  "name": "3d-prnt-preview",
+  "version": "1.0.0",
+  "description": "3D PRNT React and TypeScript website with PayFast sandbox checkout.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --host 127.0.0.1",
+    "format": "prettier --write src server scripts tests .github vite.config.ts playwright.config.ts tsconfig.json index.html README.md SECURITY.md",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "start": "node --env-file-if-exists=.env server/start.ts",
+    "test:server": "node --test tests/*.test.ts",
+    "security:secrets": "node scripts/check-secrets.ts",
+    "security:check": "npm run security:secrets && npm audit --audit-level=low && npm run build && npm run test:server && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/QcKruger/3d-prnt-preview.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/QcKruger/3d-prnt-preview/issues"
+  },
+  "homepage": "https://github.com/QcKruger/3d-prnt-preview#readme",
+  "dependencies": {
+    "@azure/cosmos": "^4.10.1",
+    "@azure/identity": "^4.14.0",
+    "@tanstack/react-query": "^5.104.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "prettier": "^3.9.10",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
