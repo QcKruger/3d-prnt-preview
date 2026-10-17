@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { once } from "node:events";
+import { products } from "../src/data/catalogue.ts";
+import { localContent } from "../server/local-content.ts";
 import {
   createCheckout,
   createPaymentHandler,
@@ -46,6 +48,7 @@ test("checkout signs server catalogue prices, sandbox destination and exact GitH
   const checkout = createCheckout(
     { ...buyer, amount: "0.01", return_url: "https://attacker.example" },
     settings,
+    products,
   );
   assert.equal(checkout.action, "https://sandbox.payfast.co.za/eng/process");
   assert.equal(checkout.fields.amount, "457.00");
@@ -60,7 +63,7 @@ test("checkout signs server catalogue prices, sandbox destination and exact GitH
   );
   assert.notEqual(
     checkout.fields.m_payment_id,
-    createCheckout(buyer, settings).fields.m_payment_id,
+    createCheckout(buyer, settings, products).fields.m_payment_id,
   );
 });
 
@@ -76,7 +79,7 @@ test("invalid customer, product IDs, personalised items and excessive quantities
     { ...buyer, productIds: [5] },
     { ...buyer, productIds: Array(21).fill(1) },
   ]) {
-    assert.throws(() => createCheckout(input, settings));
+    assert.throws(() => createCheckout(input, settings, products));
   }
 });
 
@@ -107,7 +110,7 @@ test("custom sandbox credentials are configured together and redirect URLs requi
   });
   assert.equal(configured.passphrase, "TEST_ONLY_PRIVATE_PASSPHRASE");
   assert.equal(
-    JSON.stringify(createCheckout(buyer, configured)).includes(
+    JSON.stringify(createCheckout(buyer, configured, products)).includes(
       "TEST_ONLY_PRIVATE_PASSPHRASE",
     ),
     false,
@@ -115,7 +118,14 @@ test("custom sandbox credentials are configured together and redirect URLs requi
 });
 
 test("HTTP API handles config, signed checkout, malformed payloads and unsupported requests", async () => {
-  const server = createServer(createPaymentHandler(settings));
+  const server = createServer(
+    createPaymentHandler(settings, {
+      contentSource: {
+        get: async () => ({ available: true, content: localContent }),
+        close() {},
+      },
+    }),
+  );
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();

@@ -1,0 +1,17 @@
+{
+  "id": "product:5",
+  "ID": "product:5",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 5,
+  "name": "Custom Name Sign",
+  "category": "Gifts",
+  "price": 229,
+  "desc": "A personalised statement for your space.",
+  "color": "#f2b77d",
+  "shape": "sign",
+  "tag": "CUSTOM",
+  "currency": "ZAR",
+  "priceCents": 22900,
+  "sortOrder": 5
+}

@@ -1,0 +1,17 @@
+{
+  "id": "product:3",
+  "ID": "product:3",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 3,
+  "name": "Articulated Dragon",
+  "category": "Gifts",
+  "price": 159,
+  "desc": "A flexible, playful print with lots of character.",
+  "color": "#ed85c6",
+  "shape": "dragon",
+  "tag": "FUN FIND",
+  "currency": "ZAR",
+  "priceCents": 15900,
+  "sortOrder": 3
+}

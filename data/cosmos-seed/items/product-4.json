@@ -1,0 +1,17 @@
+{
+  "id": "product:4",
+  "ID": "product:4",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 4,
+  "name": "Cable Organiser",
+  "category": "Desk",
+  "price": 79,
+  "desc": "A tiny upgrade for a clutter-free desk.",
+  "color": "#8fe4c4",
+  "shape": "cable",
+  "tag": "ESSENTIAL",
+  "currency": "ZAR",
+  "priceCents": 7900,
+  "sortOrder": 4
+}

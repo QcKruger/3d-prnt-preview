@@ -1,0 +1,9 @@
+{
+  "id": "processstep:make-it-yours",
+  "ID": "processstep:make-it-yours",
+  "EntityType": "ProcessStep",
+  "schemaVersion": 1,
+  "title": "Make it yours",
+  "description": "Tell us your preferred size, colour and material. We'll confirm the details before printing.",
+  "sortOrder": 2
+}

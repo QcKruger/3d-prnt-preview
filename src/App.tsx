@@ -10,8 +10,10 @@ import { CartDrawer } from "./features/cart";
 import { CustomPrints } from "./features/enquiry";
 import { useStore } from "./hooks/useStore";
 import { usePageEffects } from "./hooks/usePageEffects";
+import { useContent } from "./hooks/useContent";
 function App() {
-  let store = useStore();
+  const content = useContent();
+  let store = useStore(content);
   let { progressRef, ambientRef } = usePageEffects();
   return (
     <>
@@ -35,11 +37,11 @@ function App() {
         <PreviewNotice />
         <PaymentNotice />
         <Hero />
-        <Shop store={store} />
-        <Services />
-        <Process />
+        {content.products.length > 0 && <Shop store={store} />}
+        <Services items={content.services} />
+        <Process items={content.processSteps} />
         <CustomPrints notify={store.notify} />
-        <Faq />
+        <Faq items={content.faqs} />
       </main>
       <Footer />
       <div

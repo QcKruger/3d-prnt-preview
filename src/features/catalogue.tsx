@@ -1,7 +1,6 @@
 import * as React from "react";
 import type { useStore } from "../hooks/useStore";
 import type { Product } from "../types";
-import { categories } from "../data/catalogue";
 import { formatPrice } from "../lib/format";
 import { FieldLabel } from "../components/Layout";
 import { useIsMobile } from "../hooks/useResponsive";
@@ -357,6 +356,9 @@ export function Shop({ store }: { store: ReturnType<typeof useStore> }) {
   let mobile = useIsMobile();
   let [expandedResults, setExpandedResults] = React.useState("");
   let resultsKey = `${store.filter}|${store.search}|${store.sort}`;
+  const activeProduct = store.products.find(
+    (product) => product.id === selectedProduct?.id,
+  );
   let expanded = expandedResults === resultsKey;
   let visibleProducts =
     mobile && !expanded ? store.shown.slice(0, 4) : store.shown;
@@ -380,16 +382,18 @@ export function Shop({ store }: { store: ReturnType<typeof useStore> }) {
           </a>
         </div>
         <div className="chips" id="filters" aria-label="Product categories">
-          {categories.map((t) => (
-            <button
-              className={`chip${store.filter === t.value ? " active" : ""}`}
-              aria-pressed={store.filter === t.value}
-              onClick={() => store.setFilter(t.value)}
-              key={t.value}
-            >
-              {t.label}
-            </button>
-          ))}
+          {[{ value: "All", label: "All products" }, ...store.categories].map(
+            (t) => (
+              <button
+                className={`chip${store.filter === t.value ? " active" : ""}`}
+                aria-pressed={store.filter === t.value}
+                onClick={() => store.setFilter(t.value)}
+                key={t.value}
+              >
+                {t.label}
+              </button>
+            ),
+          )}
         </div>
         <div className="shop-toolbar">
           <span className="results" id="results" aria-live="polite">
@@ -454,9 +458,9 @@ export function Shop({ store }: { store: ReturnType<typeof useStore> }) {
           Explore the collection. Product photography and final specifications
           will be added before online ordering opens.
         </p>
-        {selectedProduct && (
+        {activeProduct && (
           <ProductDialog
-            product={selectedProduct}
+            product={activeProduct}
             onClose={() => setSelectedProduct(null)}
             onAdd={store.addToCart}
           />

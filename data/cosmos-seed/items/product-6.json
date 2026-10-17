@@ -1,0 +1,17 @@
+{
+  "id": "product:6",
+  "ID": "product:6",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 6,
+  "name": "Modern Vase",
+  "category": "Home",
+  "price": 199,
+  "desc": "A textured accent for modern interiors.",
+  "color": "#8ba7ff",
+  "shape": "vase",
+  "tag": "NEW",
+  "currency": "ZAR",
+  "priceCents": 19900,
+  "sortOrder": 6
+}

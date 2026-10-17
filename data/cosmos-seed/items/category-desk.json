@@ -1,0 +1,9 @@
+{
+  "id": "category:desk",
+  "ID": "category:desk",
+  "EntityType": "Category",
+  "schemaVersion": 1,
+  "value": "Desk",
+  "label": "Desk & Office",
+  "sortOrder": 1
+}

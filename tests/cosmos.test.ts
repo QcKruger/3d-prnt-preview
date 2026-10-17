@@ -90,6 +90,12 @@ test(
         );
         assert.equal(response.status, 200);
         assert.equal((await response.json()).mode, "sandbox");
+        const contentResponse = await fetch(
+          `http://127.0.0.1:${port}/api/content`,
+        );
+        assert.equal(contentResponse.status, 503);
+        const content = await contentResponse.json();
+        assert.deepEqual(content.products, []);
         if (!errors.includes("Data access disabled"))
           await once(child.stderr, "data");
         assert.match(errors, /Data access disabled; site remains running/);

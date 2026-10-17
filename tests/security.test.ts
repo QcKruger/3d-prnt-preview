@@ -6,6 +6,7 @@ import { connect } from "node:net";
 import { once } from "node:events";
 import { createPaymentHandler, sandboxSettings } from "../server/payfast.ts";
 import { checkoutLimiter } from "../server/security.ts";
+import { localContent } from "../server/local-content.ts";
 
 async function listen(server: Server) {
   server.listen(0, "127.0.0.1");
@@ -106,6 +107,10 @@ test("rate limiter expires, caps tracking entries, and enforces a global limit",
 test("HTTP rate limiting cannot be bypassed by spoofed forwarded addresses", async () => {
   const server = createServer(
     createPaymentHandler(sandboxSettings({}), {
+      contentSource: {
+        get: async () => ({ available: true, content: localContent }),
+        close() {},
+      },
       limiter: checkoutLimiter({ limit: 1 }),
     }),
   );
@@ -142,7 +147,14 @@ test("HTTP rate limiting cannot be bypassed by spoofed forwarded addresses", asy
 });
 
 test("cross-site checkout requests are rejected without permissive CORS", async () => {
-  const server = createServer(createPaymentHandler(sandboxSettings({})));
+  const server = createServer(
+    createPaymentHandler(sandboxSettings({}), {
+      contentSource: {
+        get: async () => ({ available: true, content: localContent }),
+        close() {},
+      },
+    }),
+  );
   const { url } = await listen(server);
   const body = JSON.stringify({
     firstName: "Test",

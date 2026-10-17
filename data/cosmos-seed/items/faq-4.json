@@ -1,0 +1,9 @@
+{
+  "id": "faq:4",
+  "ID": "faq:4",
+  "EntityType": "Faq",
+  "schemaVersion": 1,
+  "question": "How long will printing and delivery take?",
+  "answer": "Timing depends on the model, quantity and finishing requirements. Production lead times, delivery options and costs will be confirmed with your order before payment.",
+  "sortOrder": 4
+}

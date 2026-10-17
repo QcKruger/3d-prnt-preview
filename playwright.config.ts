@@ -18,7 +18,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "node server/start.ts",
-    env: { PORT: "4173", HOST: "127.0.0.1" },
+    env: { PORT: "4173", HOST: "127.0.0.1", NODE_ENV: "development" },
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
   },

@@ -1,0 +1,17 @@
+{
+  "id": "product:8",
+  "ID": "product:8",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 8,
+  "name": "Keychain Set",
+  "category": "Accessories",
+  "price": 99,
+  "desc": "Little everyday accessories with a personal twist.",
+  "color": "#f28bba",
+  "shape": "key",
+  "tag": "GIFT IDEA",
+  "currency": "ZAR",
+  "priceCents": 9900,
+  "sortOrder": 8
+}

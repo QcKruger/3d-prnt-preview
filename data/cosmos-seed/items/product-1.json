@@ -1,0 +1,17 @@
+{
+  "id": "product:1",
+  "ID": "product:1",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 1,
+  "name": "Geometric Planter",
+  "category": "Home",
+  "price": 189,
+  "desc": "A sculptural home for your favourite little plant.",
+  "color": "#b38aff",
+  "shape": "planter",
+  "tag": "BESTSELLER",
+  "currency": "ZAR",
+  "priceCents": 18900,
+  "sortOrder": 1
+}

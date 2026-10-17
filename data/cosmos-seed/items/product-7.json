@@ -1,0 +1,17 @@
+{
+  "id": "product:7",
+  "ID": "product:7",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 7,
+  "name": "Controller Dock",
+  "category": "Accessories",
+  "price": 179,
+  "desc": "Display your controller between gaming sessions.",
+  "color": "#b39aff",
+  "shape": "controller",
+  "tag": "GAMING",
+  "currency": "ZAR",
+  "priceCents": 17900,
+  "sortOrder": 7
+}

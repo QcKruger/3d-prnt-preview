@@ -4,7 +4,7 @@ This project is a stateless, sandbox-only storefront. This document records impl
 
 ## Current boundaries
 
-- No accounts, admin routes, uploaded models, persisted orders, or stored payment results. Cosmos DB connection support verifies metadata at production startup; no document reads/writes or public data routes have been added.
+- No accounts, admin routes, uploaded models, persisted orders, or stored payment results. The public read-only `/api/content` endpoint returns validated catalogue/site content from Cosmos. No document writes or private customer/transaction data routes have been added.
 - Customer checkout details are processed in memory and submitted to PayFast sandbox. Card details are handled by PayFast, not by this app.
 - Sandbox-only destinations are enforced server-side, in the client handoff, and by CSP. The default merchant is PayFast's public test merchant; a private sandbox account can be configured with server environment settings.
 - Payment notifications are deliberately absent. A redirect never marks an order paid or triggers fulfilment. Live payments are outside this implementation.
@@ -46,7 +46,7 @@ The guard blocks staged env files and common private-key/token/PayFast literal p
 
 ## Environment and hosting requirements
 
-- Cosmos access is server-only and keyless. Production uses an explicit system-assigned ManagedIdentityCredential with no credential-chain fallback; Azure CLI authentication is an explicit local-only option. The site listener starts independently of the background container metadata check. Failed configuration, identity authentication or network access disables data access and produces a controlled server log; the site remains available. Future database-dependent routes must return an unavailable response rather than reporting a successful write. See [AZURE.md](AZURE.md) for permissions and logs. Future user accounts still require per-user authorization in API routes; the app identity alone does not provide that boundary.
+- Cosmos access is server-only and keyless. Production uses an explicit system-assigned ManagedIdentityCredential with no credential-chain fallback. A fixed, bounded query projects only public fields from five approved entity types; unknown fields/types and malformed records are not returned. Checkout derives prices from the same current database catalogue, rejecting missing products and returning 503 on an outage. Content is not retained as a stale fallback after a failed refresh. Only explicit local development can load seed data, and local seed/loader files are excluded from deployment. The listener remains available on Cosmos failure, with controlled server logging. Future private account endpoints still require ownership authorization; the app identity alone does not provide that boundary.
 
 - Keep development bound to loopback; do not expose Vite publicly. It serves development source and HMR by design, though sensitive server/config paths are explicitly denied.
 - Use npm start for the built site. Public-interface binding requires APP_ORIGIN to be an explicit HTTPS origin. Configure your host/reverse proxy to enforce TLS and redirect HTTP to HTTPS; the Node listener itself is HTTP behind that proxy. HSTS is enabled automatically with APP_ORIGIN.

@@ -1,0 +1,9 @@
+{
+  "id": "category:accessories",
+  "ID": "category:accessories",
+  "EntityType": "Category",
+  "schemaVersion": 1,
+  "value": "Accessories",
+  "label": "Accessories",
+  "sortOrder": 4
+}

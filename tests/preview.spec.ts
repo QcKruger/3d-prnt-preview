@@ -79,7 +79,9 @@ test("adds product quantities, enables sandbox checkout, and removes cart items"
   await expect(
     cart.getByText(/Sandbox test checkout · no real payment/),
   ).toBeVisible();
-  expect(apiRequests).toEqual([expect.stringContaining("/api/payment/config")]);
+  expect(apiRequests.filter((url) => url.includes("/api/payment/"))).toEqual([
+    expect.stringContaining("/api/payment/config"),
+  ]);
   await cart.getByRole("button", { name: /Back to cart/ }).click();
   await cart
     .getByRole("button", { name: "Remove Geometric Planter from cart" })
@@ -129,7 +131,9 @@ test("validates an enquiry and downloads a brief without submitting or uploading
   expect(brief).toContain("Model filename: model.stl");
   expect(brief).toContain("This brief has not been sent.");
   await expect(page.locator(".form-success")).toBeVisible();
-  expect(apiRequests).toEqual([]);
+  expect(apiRequests.filter((url) => !url.includes("/api/content"))).toEqual(
+    [],
+  );
 });
 
 test("rejects invalid and empty model files", async ({ page }, testInfo) => {

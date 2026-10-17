@@ -1,0 +1,10 @@
+{
+  "id": "service:custom-3d-printing",
+  "ID": "service:custom-3d-printing",
+  "EntityType": "Service",
+  "schemaVersion": 1,
+  "title": "Custom 3D Printing",
+  "icon": "◈",
+  "description": "Got an STL file? Send it over and we'll turn your digital model into something you can hold.",
+  "sortOrder": 1
+}

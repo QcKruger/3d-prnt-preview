@@ -1,0 +1,17 @@
+{
+  "id": "product:2",
+  "ID": "product:2",
+  "EntityType": "Product",
+  "schemaVersion": 1,
+  "productId": 2,
+  "name": "Headphone Stand",
+  "category": "Desk",
+  "price": 249,
+  "desc": "Keep your setup organised and looking sharp.",
+  "color": "#69cfff",
+  "shape": "stand",
+  "tag": "POPULAR",
+  "currency": "ZAR",
+  "priceCents": 24900,
+  "sortOrder": 2
+}

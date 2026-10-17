@@ -1,0 +1,9 @@
+{
+  "id": "faq:3",
+  "ID": "faq:3",
+  "EntityType": "Faq",
+  "schemaVersion": 1,
+  "question": "Can I choose a colour, material or size?",
+  "answer": "You can include your preferences in your enquiry. Final material, colour availability, dimensions and pricing will be confirmed before printing.",
+  "sortOrder": 3
+}

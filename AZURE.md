@@ -2,7 +2,7 @@
 
 The Node backend uses the **hosting resource's system-assigned managed identity** to access an existing Azure Cosmos DB for NoSQL container. The React browser never connects directly to Cosmos. There is no account key, connection string, client secret, user-assigned identity selector or automatic fallback credential chain.
 
-This configures the data connection, not persistence features. The server verifies container metadata at startup; catalogue products remain in source, carts remain in memory, and orders/payment results are not saved. Future data repositories should use `createCosmosConnection` from `server/cosmos.ts` on the server, reusing one client per process. Never expose arbitrary Cosmos queries or item access in a public route: future account endpoints must enforce user ownership independently of the app's identity.
+The deployed server reads products, categories, FAQs, services and process steps from the configured container through `/api/content`. The fixed query projects public fields only, restricts entity types, caps the snapshot at 1,000 documents, and validates the records before returning them. `priceCents` is the authoritative product price in ZAR; `productId` retains the numeric cart identifier. Unknown/malformed content is omitted, and duplicate numeric product IDs are rejected. Checkout re-reads the database catalogue before signing its total. Carts remain in memory; orders and payment results are not saved. Future private endpoints must enforce ownership independently of the app identity.
 
 ## Hosting requirements
 
@@ -71,26 +71,28 @@ The script enables the web app's system-assigned identity, grants **Cosmos DB Bu
 
 If using a custom domain, set `APP_ORIGIN` to its exact HTTPS origin afterward. Runtime connection settings contain identifiers, not credentials. Do not add `VITE_` prefixes. `AZURE_CLIENT_ID` is not used to select an identity; the managed-identity credential is constructed without an identity selector. Each deployment slot needs its own identity, permissions and appropriate settings; do not assume a slot swap moves the identity.
 
-Reader is enough for the current metadata check and future reads. When implementing writes, use `-DataRole Contributor` to grant **Cosmos DB Built-in Data Contributor** at the same container scope, or define a narrower custom data role for the necessary operations. Re-running with a different role adds that assignment; remove obsolete assignments separately. No resource-group-wide Contributor role is granted to the app.
+Reader is enough for the current catalogue and site-content queries. When implementing writes, use `-DataRole Contributor` to grant **Cosmos DB Built-in Data Contributor** at the same container scope, or define a narrower custom data role for the necessary operations. Re-running with a different role adds that assignment; remove obsolete assignments separately. No resource-group-wide Contributor role is granted to the app.
 
 For an account whose clients have all migrated to identity authentication, add `-DisableKeyAuthentication` to disable key authentication account-wide. This is optional because it affects every client of that account. The application itself never uses keys either way. Existing unrelated settings/credentials and role assignments are not removed by this script; review and remove obsolete ones separately.
 
-Allow data-role propagation, then restart the app. The site listener starts immediately; Cosmos metadata is checked in the background with a bounded request timeout. Authentication, permission, network or configuration failures are logged and leave data access disabled. No keys or developer credentials are used as a fallback. No documents are created or written. Logs include a safe numeric HTTP status when available, but omit raw provider messages, tokens and settings. Logs go to stderr and, on Azure, `%HOME%/LogFiles/3dprnt/cosmos.log` outside the public deployment directory. A logging failure also does not stop startup. Configure operational log retention in the host. Restart after correcting Cosmos access; no background reconnect loop is implemented. Deleting/recreating the host or disabling/re-enabling its identity can change the principal; rerun setup and remove obsolete assignments.
+Allow data-role propagation. The listener starts immediately and content is read in the background/on request with an eight-second query timeout. An empty database returns empty collections. Authentication, permission, network or configuration failures return empty content with HTTP 503, and checkout is unavailable. The browser refreshes every ten seconds, clears formerly visible data on a failed refresh, and displays records when access recovers. Requests retry the connection automatically; no restart is needed after importing data or correcting a data-role grant (changing environment settings still requires the host's normal restart).
+
+No keys, developer credentials or bundled data are used as a deployed fallback. No documents are created or written. Failure logs are throttled to once per minute per process and include a safe numeric HTTP status when available, omitting raw provider messages, tokens and settings. Logs go to stderr and, on Azure, `%HOME%/LogFiles/3dprnt/cosmos.log` outside the public deployment directory. Logging failure does not stop startup. Configure operational log retention in the host. Deleting/recreating the host or disabling/re-enabling its identity can change the principal; rerun setup and remove obsolete assignments.
 
 ## Local development
 
-With no Cosmos settings, `npm run dev` and local `npm start` remain stateless previews. Production data access requires all three Cosmos identifiers and managed-identity mode. Missing or invalid runtime data settings are logged without blocking the site. Builds still validate supplied settings but do not obtain tokens or connect to Cosmos.
+`npm run dev` explicitly uses development mode on loopback and loads the local catalogue plus `data/cosmos-seed/items.json`. Azure-hosted processes, public listeners, an explicit `APP_ORIGIN`, or any mode other than `development` use Cosmos only. `npm start` and Vite preview therefore have no local-data fallback. Builds contain no local seed content and do not obtain tokens or connect to Cosmos; deployment packages also exclude the local loader and seed files.
 
-To verify access locally, assign your developer identity a Cosmos native Data Reader role on a development container, run `az login` in the correct tenant, and add the following to your ignored `.env`:
+Use these server-only identifiers for a Cosmos-backed production process:
 
 ```dotenv
 COSMOS_ENDPOINT=https://YOUR_ACCOUNT.documents.azure.com
 COSMOS_DATABASE=YOUR_DATABASE
 COSMOS_CONTAINER=YOUR_CONTAINER
-COSMOS_AUTH_MODE=azure-cli
+COSMOS_AUTH_MODE=managed-identity
 ```
 
-Then run `npm run build` and `npm start`. Only this explicit local mode uses your Azure CLI login; it is rejected by the deployed runtime. `npm run dev` validates configuration but does not initialize a data client because the current UI has no data routes. No emulator or account-key mode is supported.
+The Azure host provides the system-assigned identity. No emulator or account-key mode is supported. Import `data/cosmos-seed/items.json` (or the individual files) to populate the database. The header, hero, enquiry form and footer are application layout; data-driven sections are omitted when their corresponding collection is empty. The public sandbox payment config endpoint checks site availability only, not Cosmos readiness.
 
 PayFast remains sandbox-only and uses separate server-side credentials. Managed identity does not replace PayFast's signing passphrase; on App Service it can separately authorize Key Vault references for those secrets.
 

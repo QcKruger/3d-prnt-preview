@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { products } from "../src/data/catalogue.ts";
+import { unavailableContent } from "./content.ts";
+import type { ContentSource } from "./content.ts";
 import {
   checkRequestOrigin,
   checkoutLimiter,
@@ -15,6 +16,7 @@ import type {
   PaymentConfig,
   PaymentRedirect,
   PaymentRequest,
+  Product,
 } from "../src/types.ts";
 
 export const SANDBOX_ACTION = "https://sandbox.payfast.co.za/eng/process";
@@ -95,6 +97,7 @@ export function signFields(
 export function createCheckout(
   input: unknown,
   settings: SandboxSettings,
+  products: readonly Product[],
 ): PaymentRedirect {
   if (!input || typeof input !== "object")
     throw new Error("Invalid checkout details.");
@@ -165,9 +168,11 @@ export function createPaymentHandler(
     bodyTimeoutMs?: number;
     allowedHost?: string;
     requestLimiter?: ReturnType<typeof checkoutLimiter>;
+    contentSource?: ContentSource;
   } = {},
 ) {
   const limit = options.limiter || checkoutLimiter();
+  const contentSource = options.contentSource || unavailableContent;
   const requests =
     options.requestLimiter ||
     checkoutLimiter({ limit: 300, globalLimit: 5000 });
@@ -213,6 +218,15 @@ export function createPaymentHandler(
           request.headers["transfer-encoding"])
       )
         throw new HttpError(400, "This request must not contain a body.");
+      if (pathname === "/api/content") {
+        if (request.method !== "GET") {
+          response.setHeader("Allow", "GET");
+          throw new HttpError(405, "Use GET for site content.");
+        }
+        const result = await contentSource.get();
+        json(response, result.available ? 200 : 503, result.content);
+        return;
+      }
       if (!pathname.startsWith("/api/payment/")) {
         next?.();
         return;
@@ -255,9 +269,15 @@ export function createPaymentHandler(
         return;
       }
       const input = await readJson(request, options.bodyTimeoutMs);
+      const catalogue = await contentSource.get();
+      if (!catalogue.available)
+        throw new HttpError(
+          503,
+          "Products are temporarily unavailable. Please try again shortly.",
+        );
       let checkout: PaymentRedirect;
       try {
-        checkout = createCheckout(input, settings);
+        checkout = createCheckout(input, settings, catalogue.content.products);
       } catch (error) {
         throw new HttpError(
           400,

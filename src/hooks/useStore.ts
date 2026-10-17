@@ -1,6 +1,7 @@
 import * as React from "react";
-import { products } from "../data/catalogue";
-export function useStore() {
+import type { StorefrontContent } from "../content";
+export function useStore(content: StorefrontContent) {
+  const { products, categories } = content;
   const [filter, setFilter] = React.useState("All");
   const [search, setSearch] = React.useState("");
   const [sort, setSort] = React.useState("featured");
@@ -40,6 +41,8 @@ export function useStore() {
     setCartIds((ids) => ids.filter((_, itemIndex) => itemIndex !== index));
   }
   return {
+    products,
+    categories,
     filter,
     setFilter,
     search,

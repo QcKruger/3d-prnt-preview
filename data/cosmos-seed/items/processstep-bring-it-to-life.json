@@ -1,0 +1,9 @@
+{
+  "id": "processstep:bring-it-to-life",
+  "ID": "processstep:bring-it-to-life",
+  "EntityType": "ProcessStep",
+  "schemaVersion": 1,
+  "title": "We bring it to life",
+  "description": "Once approved, your design moves from a digital file to a physical object.",
+  "sortOrder": 3
+}

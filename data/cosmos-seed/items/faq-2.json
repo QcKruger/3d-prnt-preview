@@ -1,0 +1,9 @@
+{
+  "id": "faq:2",
+  "ID": "faq:2",
+  "EntityType": "Faq",
+  "schemaVersion": 1,
+  "question": "Which model files can I select?",
+  "answer": "You can select STL, OBJ and 3MF files. At this stage, files stay on your device. The saved enquiry brief includes the filename, so keep the model separately for when contact channels open.",
+  "sortOrder": 2
+}

@@ -1,0 +1,10 @@
+{
+  "id": "service:personalised-gifts",
+  "ID": "service:personalised-gifts",
+  "EntityType": "Service",
+  "schemaVersion": 1,
+  "title": "Personalised Gifts",
+  "icon": "✧",
+  "description": "Names, colours and custom details that make every piece uniquely yours.",
+  "sortOrder": 2
+}

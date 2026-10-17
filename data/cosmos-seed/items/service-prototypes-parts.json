@@ -1,0 +1,10 @@
+{
+  "id": "service:prototypes-parts",
+  "ID": "service:prototypes-parts",
+  "EntityType": "Service",
+  "schemaVersion": 1,
+  "title": "Prototypes & Parts",
+  "icon": "⬡",
+  "description": "Bring ideas to life with functional prototypes, replacement parts and practical solutions.",
+  "sortOrder": 3
+}

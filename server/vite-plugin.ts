@@ -12,12 +12,15 @@ import {
 } from "./security.ts";
 import { sendHtml } from "./html.ts";
 import { cosmosSettings } from "./cosmos.ts";
+import { createContentSource } from "./content.ts";
+import type { ContentSource } from "./content.ts";
 
 export function paymentPlugin(): Plugin {
   let handler: ReturnType<typeof createPaymentHandler>;
   let development = false;
   let root = "";
   let output = "";
+  let contentSource: ContentSource;
   return {
     name: "payfast-sandbox-api",
     config(_config, environment) {
@@ -31,13 +34,19 @@ export function paymentPlugin(): Plugin {
       // access is initialized by the deployed Node server, not the build agent.
       cosmosSettings(env, false);
       const origin = env.APP_ORIGIN ? new URL(env.APP_ORIGIN) : undefined;
+      contentSource = createContentSource({
+        ...env,
+        NODE_ENV: development ? "development" : "production",
+      });
       handler = createPaymentHandler(sandboxSettings(env), {
         development,
         httpsOnly: env.SECURITY_HTTPS_ONLY === "true",
         allowedHost: origin?.hostname,
+        contentSource,
       });
     },
     configureServer(server) {
+      server.httpServer?.once("close", () => contentSource.close());
       if (server.httpServer && "headersTimeout" in server.httpServer)
         hardenServer(server.httpServer as Server);
       server.middlewares.use(handler);
@@ -74,6 +83,7 @@ export function paymentPlugin(): Plugin {
       });
     },
     configurePreviewServer(server) {
+      server.httpServer.once("close", () => contentSource.close());
       if ("headersTimeout" in server.httpServer)
         hardenServer(server.httpServer as Server);
       server.middlewares.use(handler);

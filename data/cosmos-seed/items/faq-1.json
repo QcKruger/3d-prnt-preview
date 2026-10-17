@@ -1,0 +1,9 @@
+{
+  "id": "faq:1",
+  "ID": "faq:1",
+  "EntityType": "Faq",
+  "schemaVersion": 1,
+  "question": "Can I request a custom print without a model?",
+  "answer": "Yes. Start with a description of your idea in the enquiry form. Dimensions, intended use and a preferred colour help define the project. Design feasibility and any modelling work will need to be confirmed.",
+  "sortOrder": 1
+}

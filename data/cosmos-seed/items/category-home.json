@@ -1,0 +1,9 @@
+{
+  "id": "category:home",
+  "ID": "category:home",
+  "EntityType": "Category",
+  "schemaVersion": 1,
+  "value": "Home",
+  "label": "Home Decor",
+  "sortOrder": 2
+}

@@ -16,6 +16,7 @@ import {
   requestPath,
 } from "./security.ts";
 import { sendHtml } from "./html.ts";
+import type { ContentSource } from "./content.ts";
 
 const types: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -64,6 +65,7 @@ export function createAppServer(
     allowedHost?: string;
     maxConnections?: number;
     maxPerAddress?: number;
+    contentSource?: ContentSource;
   } = {},
 ) {
   const assets = builtAssets(directory);

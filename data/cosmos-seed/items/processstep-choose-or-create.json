@@ -1,0 +1,9 @@
+{
+  "id": "processstep:choose-or-create",
+  "ID": "processstep:choose-or-create",
+  "EntityType": "ProcessStep",
+  "schemaVersion": 1,
+  "title": "Choose or create",
+  "description": "Browse the collection or upload your own 3D model to request a custom print.",
+  "sortOrder": 1
+}

@@ -1,0 +1,9 @@
+{
+  "id": "category:gifts",
+  "ID": "category:gifts",
+  "EntityType": "Category",
+  "schemaVersion": 1,
+  "value": "Gifts",
+  "label": "Gifts",
+  "sortOrder": 3
+}

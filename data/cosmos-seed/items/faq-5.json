@@ -1,0 +1,9 @@
+{
+  "id": "faq:5",
+  "ID": "faq:5",
+  "EntityType": "Faq",
+  "schemaVersion": 1,
+  "question": "Can I place an online order today?",
+  "answer": "You can try PayFast sandbox checkout using test funds, explore products, and save a custom enquiry brief. Sandbox transactions do not create real orders. Completing or cancelling checkout returns to our preview website; payment notifications are not connected yet.",
+  "sortOrder": 5
+}
