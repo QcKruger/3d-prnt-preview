@@ -2,7 +2,8 @@ import { emptyContent } from "../src/content.ts";
 import type { StorefrontContent } from "../src/content.ts";
 import type { ProductShape } from "../src/types.ts";
 import { cosmosSettings, createCosmosConnection } from "./cosmos.ts";
-import { logCosmosFailure } from "./logging.ts";
+import { describeCosmosFailure, logCosmosFailure } from "./logging.ts";
+import type { CosmosPhase } from "./logging.ts";
 
 export interface ContentResult {
   available: boolean;
@@ -170,41 +171,59 @@ export function createContentSource(
   let pending: Promise<ContentResult> | undefined;
   let lastLog = -Infinity;
   let closed = false;
+  let wasUnavailable = false;
+  let loggedSuccess = false;
   const load = async (): Promise<ContentResult> => {
     if (isLocalDevelopment(env)) {
       // This module and all seed content are excluded from the deployed package.
       const { localContent } = await import("./local-content.ts");
       return { available: true, content: localContent };
     }
+    let phase: CosmosPhase = "configuration";
     try {
       if (!connection) {
         const settings = cosmosSettings(env);
         if (!settings) throw new Error("Missing data configuration");
+        phase = "client";
         connection = connect(settings);
       }
+      phase = "query";
       const { resources } = await connection.container.items
         .query<unknown>(publicContentQuery, {
           maxItemCount: 100,
           abortSignal: AbortSignal.timeout(8_000),
         })
         .fetchAll();
-      return { available: true, content: parseContent(resources) };
+      phase = "validation";
+      const content = parseContent(resources);
+      if (!loggedSuccess || wasUnavailable) {
+        const counts = Object.entries(content)
+          .map(([name, rows]) => `${name}=${rows.length}`)
+          .join(" ");
+        try {
+          await report(
+            `Content read succeeded. records=${resources.length} ${counts}. ${resources.length === 0 ? "Query returned no matching EntityType records." : "Only schemaVersion=1 records passing public-content validation are displayed."}`,
+          );
+        } catch {
+          /* Logging cannot interrupt content delivery. */
+        }
+        loggedSuccess = true;
+      }
+      wasUnavailable = false;
+      return { available: true, content };
     } catch (error) {
       connection?.client.dispose();
       connection = undefined;
+      wasUnavailable = true;
       if (Date.now() - lastLog >= 60_000) {
         lastLog = Date.now();
-        const code = (error as { code?: unknown } | null)?.code;
-        const status =
-          typeof code === "number" &&
-          Number.isInteger(code) &&
-          code >= 100 &&
-          code <= 599
-            ? ` HTTP ${code}.`
-            : "";
-        await report(
-          `Content unavailable.${status} Data access disabled; site remains running. Retrying on the next content request.`,
-        );
+        try {
+          await report(
+            `Content unavailable. ${describeCosmosFailure(error, phase)} Site remains running; retrying on the next content request. Repeated failures are logged at most once per minute.`,
+          );
+        } catch {
+          /* Logging cannot interrupt the site or its recovery. */
+        }
       }
       return { available: false, content: emptyContent() };
     }

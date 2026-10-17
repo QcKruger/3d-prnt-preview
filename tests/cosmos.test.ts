@@ -96,9 +96,13 @@ test(
         assert.equal(contentResponse.status, 503);
         const content = await contentResponse.json();
         assert.deepEqual(content.products, []);
-        if (!errors.includes("Data access disabled"))
+        if (!errors.includes("reason=invalid-server-configuration"))
           await once(child.stderr, "data");
-        assert.match(errors, /Data access disabled; site remains running/);
+        assert.match(
+          errors,
+          /phase=configuration reason=invalid-server-configuration/,
+        );
+        assert.match(errors, /Site remains running/);
         assert.equal(child.exitCode, null);
       } finally {
         if (child.exitCode === null && child.signalCode === null) {

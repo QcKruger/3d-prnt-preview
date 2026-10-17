@@ -126,8 +126,12 @@ test("Cosmos empty results, failures and recovery never retain or substitute loc
   assert.equal(offline.available, false);
   assert.deepEqual(offline.content, emptyContent());
   assert.equal(disposed, 1);
-  assert.match(messages[0], /HTTP 403/);
-  assert.ok(!messages[0].includes("private provider diagnostic"));
+  assert.ok(
+    messages.some((message) =>
+      /phase=query reason=cosmos-access-forbidden HTTP 403/.test(message),
+    ),
+  );
+  assert.ok(!messages.join("\n").includes("private provider diagnostic"));
   fail = false;
   assert.equal((await source.get()).content.products.length, 1);
   rows = [];
