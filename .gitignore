@@ -3,6 +3,8 @@ dist/
 test-results/
 playwright-report/
 *.tsbuildinfo
+azure-package/
+azure-app.zip
 .env
 .env.*
 !.env.example

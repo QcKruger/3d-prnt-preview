@@ -11,6 +11,7 @@ import {
   requestPath,
 } from "./security.ts";
 import { sendHtml } from "./html.ts";
+import { cosmosSettings } from "./cosmos.ts";
 
 export function paymentPlugin(): Plugin {
   let handler: ReturnType<typeof createPaymentHandler>;
@@ -26,6 +27,9 @@ export function paymentPlugin(): Plugin {
       root = config.root;
       output = resolve(root, config.build.outDir);
       const env = { ...loadEnv(config.mode, root, ""), ...process.env };
+      // Validate server-only configuration at build/dev startup; Cosmos network
+      // access is initialized by the deployed Node server, not the build agent.
+      cosmosSettings(env, false);
       const origin = env.APP_ORIGIN ? new URL(env.APP_ORIGIN) : undefined;
       handler = createPaymentHandler(sandboxSettings(env), {
         development,

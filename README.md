@@ -29,6 +29,14 @@ Open the URL printed by Vite. The development server runs both the website and s
 
 Browser tests use installed Google Chrome. Run `npm run build` before `npm test`. Playwright starts and stops the production Node server automatically. The normal browser suite intercepts the external PayFast handoff; it does not complete real gateway transactions.
 
+## Azure data access
+
+Deployment uses a server-only Cosmos DB for NoSQL client with the host's **system-assigned managed identity**. No database keys or connection strings are used. Production startup requires Cosmos configuration and verifies access before accepting traffic. Local previews can remain disconnected. Data persistence and payment notifications are still unimplemented.
+
+See [Azure setup and deployment](AZURE.md) for the App Service configuration script, container-scoped data permissions, server environment settings and local Azure CLI testing.
+
+Azure Deployment Center created `.github/workflows/main_3dprntweb.yml` on **main** for Windows App Service **3dprntweb**, including OIDC authentication. Use that single deployment workflow. Its generated build/package steps still need adapting to the Windows package described in [AZURE.md](AZURE.md); runtime Cosmos configuration remains a separate step.
+
 ## Sandbox checkout
 
 1. Add products to the cart and select **Review checkout**.

@@ -4,7 +4,7 @@ This project is a stateless, sandbox-only storefront. This document records impl
 
 ## Current boundaries
 
-- No accounts, admin routes, database, uploaded models, persisted orders, or stored payment results.
+- No accounts, admin routes, uploaded models, persisted orders, or stored payment results. Cosmos DB connection support verifies metadata at production startup; no document reads/writes or public data routes have been added.
 - Customer checkout details are processed in memory and submitted to PayFast sandbox. Card details are handled by PayFast, not by this app.
 - Sandbox-only destinations are enforced server-side, in the client handoff, and by CSP. The default merchant is PayFast's public test merchant; a private sandbox account can be configured with server environment settings.
 - Payment notifications are deliberately absent. A redirect never marks an order paid or triggers fulfilment. Live payments are outside this implementation.
@@ -45,6 +45,8 @@ git config core.hooksPath .githooks
 The guard blocks staged env files and common private-key/token/PayFast literal patterns without printing matched values. It is a targeted guard, not an exhaustive secret detector or a history scan. Enable GitHub secret scanning/push protection and require the security workflow in branch protection where available. Hooks can be bypassed, so CI is the independent check. No branch protection or remote repository settings are changed automatically.
 
 ## Environment and hosting requirements
+
+- Cosmos access is server-only and keyless. Production uses an explicit system-assigned ManagedIdentityCredential with no credential-chain fallback; Azure CLI authentication is an explicit local-only option. Production requires all Cosmos identifiers and a successful container metadata check before listening. See [AZURE.md](AZURE.md) for container-scoped native data RBAC, network requirements, and the optional account-wide disabling of key authentication. Future user accounts still require per-user authorization in API routes; the app identity alone does not provide that boundary.
 
 - Keep development bound to loopback; do not expose Vite publicly. It serves development source and HMR by design, though sensitive server/config paths are explicitly denied.
 - Use npm start for the built site. Public-interface binding requires APP_ORIGIN to be an explicit HTTPS origin. Configure your host/reverse proxy to enforce TLS and redirect HTTP to HTTPS; the Node listener itself is HTTP behind that proxy. HSTS is enabled automatically with APP_ORIGIN.
