@@ -35,7 +35,7 @@ Deployment uses a server-only Cosmos DB for NoSQL client with the host's **syste
 
 See [Azure setup and deployment](AZURE.md) for the App Service configuration script, container-scoped data permissions, server environment settings and local Azure CLI testing.
 
-Azure Deployment Center created `.github/workflows/main_3dprntweb.yml` on **main** for Windows App Service **3dprntweb**, including OIDC authentication. Use that single deployment workflow. Its generated build/package steps still need adapting to the Windows package described in [AZURE.md](AZURE.md); runtime Cosmos configuration remains a separate step.
+Azure Deployment Center created `.github/workflows/main_3dprntweb.yml` for Windows App Service **3dprntweb**, including OIDC authentication. This single deployment workflow runs security checks, packages the Windows application and deploys pushes to **main**. It configures the system-assigned identity and runtime settings; that identity must separately have container-scoped Cosmos data permissions. See [AZURE.md](AZURE.md).
 
 ## Sandbox checkout
 
