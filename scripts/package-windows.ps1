@@ -21,7 +21,9 @@ foreach ($name in @('iisnode.cjs', 'web.config')) {
     Copy-Item -LiteralPath (Join-Path $root "deployment/$name") -Destination $target
 }
 $null = New-Item -ItemType Directory -Path (Join-Path $target 'runtime')
-Copy-Item -LiteralPath (Get-Command node -CommandType Application).Source -Destination (Join-Path $target 'runtime/node.exe')
-& (Get-Command npm.cmd -CommandType Application).Source ci --omit=dev --ignore-scripts --prefix $target
+$nodeCommand = Get-Command node -CommandType Application | Select-Object -First 1
+$npmCommand = Get-Command npm.cmd -CommandType Application | Select-Object -First 1
+Copy-Item -LiteralPath $nodeCommand.Source -Destination (Join-Path $target 'runtime/node.exe')
+& $npmCommand.Source ci --omit=dev --ignore-scripts --prefix $target
 if ($LASTEXITCODE -ne 0) { throw 'Production dependency installation failed.' }
 Write-Host "Windows deployment package ready at $target"
