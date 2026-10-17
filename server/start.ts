@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { createAppServer } from "./app.ts";
 import { sandboxSettings } from "./payfast.ts";
-import { cosmosSettings, initializeCosmos } from "./cosmos.ts";
+import { initializeCosmosFromEnvironment } from "./cosmos.ts";
 import { listenerTarget } from "./listener.ts";
 
 const host = process.env.HOST || "127.0.0.1";
@@ -25,9 +25,9 @@ if (!["127.0.0.1", "localhost", "::1"].includes(host) && !origin)
   throw new Error(
     "Set an HTTPS APP_ORIGIN before binding to a public interface.",
   );
-const dataSettings = cosmosSettings(process.env);
 const paymentSettings = sandboxSettings(process.env);
-const data = await initializeCosmos(dataSettings);
+let data: Awaited<ReturnType<typeof initializeCosmosFromEnvironment>>;
+let closed = false;
 const server = createAppServer(
   fileURLToPath(new URL("../dist/", import.meta.url)),
   paymentSettings,
@@ -36,7 +36,16 @@ const server = createAppServer(
     allowedHost: origin?.hostname,
   },
 );
-server.once("close", () => data?.client.dispose());
-const listening = () => console.log("Sandbox site running.");
+server.once("close", () => {
+  closed = true;
+  data?.client.dispose();
+});
+const listening = () => {
+  console.log("Sandbox site running.");
+  void initializeCosmosFromEnvironment(process.env).then((connection) => {
+    if (closed) connection?.client.dispose();
+    else data = connection;
+  });
+};
 if (typeof port === "string") server.listen(port, listening);
 else server.listen(port, host, listening);

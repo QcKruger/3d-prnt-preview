@@ -1,5 +1,6 @@
 import { CosmosClient } from "@azure/cosmos";
 import { AzureCliCredential, ManagedIdentityCredential } from "@azure/identity";
+import { logCosmosFailure } from "./logging.ts";
 
 type Environment = Record<string, string | undefined>;
 
@@ -107,20 +108,46 @@ export function createCosmosConnection(settings: CosmosSettings) {
 export async function initializeCosmos(
   settings: CosmosSettings | undefined,
   connect = createCosmosConnection,
+  report: (message: string) => void | Promise<void> = logCosmosFailure,
 ) {
   if (!settings) return undefined;
-  const connection = connect(settings);
+  let connection: ReturnType<typeof createCosmosConnection> | undefined;
   try {
-    // Verify the identity, permissions, network and existing container before
-    // accepting traffic. Provisioning resources is not a runtime permission.
+    connection = connect(settings);
+    // This check runs in the background and never gates the site listener.
     await connection.container.read({
       abortSignal: AbortSignal.timeout(20_000),
     });
     return connection;
-  } catch {
-    connection.client.dispose();
-    throw new Error(
-      "Cosmos startup check failed. Check the host's system-assigned identity, Cosmos data role, network access and database/container settings.",
+  } catch (error) {
+    connection?.client.dispose();
+    const code = (error as { code?: unknown } | null)?.code;
+    const status =
+      typeof code === "number" &&
+      Number.isInteger(code) &&
+      code >= 100 &&
+      code <= 599
+        ? ` HTTP ${code}.`
+        : "";
+    await report(
+      `Connection unavailable.${status} Data access disabled; site remains running. Check managed identity, Cosmos data permissions, networking and container settings.`,
     );
+    return undefined;
   }
+}
+
+export async function initializeCosmosFromEnvironment(
+  env: Environment,
+  report: (message: string) => void | Promise<void> = logCosmosFailure,
+) {
+  let settings: CosmosSettings | undefined;
+  try {
+    settings = cosmosSettings(env);
+  } catch {
+    await report(
+      "Configuration invalid or incomplete. Data access disabled; site remains running. Check server-only Cosmos settings and managed-identity authentication.",
+    );
+    return undefined;
+  }
+  return initializeCosmos(settings, createCosmosConnection, report);
 }

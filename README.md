@@ -31,7 +31,7 @@ Browser tests use installed Google Chrome. Run `npm run build` before `npm test`
 
 ## Azure data access
 
-Deployment uses a server-only Cosmos DB for NoSQL client with the host's **system-assigned managed identity**. No database keys or connection strings are used. Production startup requires Cosmos configuration and verifies access before accepting traffic. Local previews can remain disconnected. Data persistence and payment notifications are still unimplemented.
+Deployment uses a server-only Cosmos DB for NoSQL client with the host's **system-assigned managed identity**. No database keys or connection strings are used. The site starts immediately and checks Cosmos access in the background. Failed or invalid Cosmos configuration is logged and disables data access without stopping the site. Local previews can remain disconnected. Data persistence and payment notifications are still unimplemented.
 
 See [Azure setup and deployment](AZURE.md) for the App Service configuration script, container-scoped data permissions, server environment settings and local Azure CLI testing.
 

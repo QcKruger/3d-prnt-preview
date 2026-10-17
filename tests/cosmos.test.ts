@@ -1,10 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { createServer } from "node:http";
 import {
   cosmosSettings,
   createCosmosConnection,
   initializeCosmos,
+  initializeCosmosFromEnvironment,
 } from "../server/cosmos.ts";
 
 const config = {
@@ -43,32 +46,64 @@ test("local preview is optional, deployed data configuration is mandatory", () =
   assert.throws(() => cosmosSettings({ COSMOS_DATABASE: "store" }), /together/);
 });
 
-test("the production entry point rejects missing settings and developer credentials before listening", () => {
-  for (const extra of [{}, { ...config, COSMOS_AUTH_MODE: "azure-cli" }]) {
-    const result = spawnSync(process.execPath, ["server/start.ts"], {
-      cwd: new URL("../", import.meta.url),
-      env: {
-        ...process.env,
-        COSMOS_ENDPOINT: "",
-        COSMOS_DATABASE: "",
-        COSMOS_CONTAINER: "",
-        COSMOS_AUTH_MODE: "managed-identity",
-        ...extra,
-        NODE_ENV: "production",
-        HOST: "127.0.0.1",
-        APP_ORIGIN: "",
-      },
-      encoding: "utf8",
-      timeout: 10_000,
-    });
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /required in deployment|system-assigned managed identity/,
-    );
-    assert.ok(!result.stdout.includes("site running"));
-  }
-});
+test(
+  "production serves the site and logs disabled data access when Cosmos settings are missing or invalid",
+  { timeout: 20_000 },
+  async () => {
+    for (const extra of [{}, { ...config, COSMOS_AUTH_MODE: "azure-cli" }]) {
+      const probe = createServer();
+      probe.listen(0, "127.0.0.1");
+      await once(probe, "listening");
+      const address = probe.address();
+      assert.ok(address && typeof address !== "string");
+      const port = address.port;
+      await new Promise<void>((resolve) => probe.close(() => resolve()));
+      const child = spawn(process.execPath, ["server/start.ts"], {
+        cwd: new URL("../", import.meta.url),
+        env: {
+          ...process.env,
+          COSMOS_ENDPOINT: "",
+          COSMOS_DATABASE: "",
+          COSMOS_CONTAINER: "",
+          COSMOS_AUTH_MODE: "managed-identity",
+          ...extra,
+          NODE_ENV: "production",
+          HOST: "127.0.0.1",
+          APP_ORIGIN: "",
+          PORT: String(port),
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let errors = "";
+      child.stderr.on("data", (chunk) => {
+        errors += chunk;
+      });
+      try {
+        await Promise.race([
+          once(child.stdout, "data"),
+          once(child, "exit").then(() => {
+            throw new Error("Site exited during Cosmos failure.");
+          }),
+        ]);
+        const response = await fetch(
+          `http://127.0.0.1:${port}/api/payment/config`,
+        );
+        assert.equal(response.status, 200);
+        assert.equal((await response.json()).mode, "sandbox");
+        if (!errors.includes("Data access disabled"))
+          await once(child.stderr, "data");
+        assert.match(errors, /Data access disabled; site remains running/);
+        assert.equal(child.exitCode, null);
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) {
+          const exited = once(child, "exit");
+          child.kill();
+          await exited;
+        }
+      }
+    }
+  },
+);
 
 test("connection is keyless, server-only, and local CLI authentication is explicit", () => {
   for (const env of [
@@ -107,7 +142,7 @@ test("rejects endpoints that could send identity tokens to an arbitrary host", (
   assert.throws(() => cosmosSettings({ ...config, COSMOS_CONTAINER: "a/b" }));
 });
 
-test("startup verifies access before serving and disposes failed clients without leaking errors", async () => {
+test("failed Cosmos access logs a safe status, disposes the client and leaves data disabled", async () => {
   let reads = 0;
   let disposals = 0;
   const fake = {
@@ -129,16 +164,41 @@ test("startup verifies access before serving and disposes failed clients without
   assert.equal(await initializeCosmos(cosmosSettings(config), connect), fake);
   assert.equal(reads, 1);
   assert.equal(disposals, 0);
+  const messages: string[] = [];
   fake.container.read = async () => {
-    throw new Error("private diagnostic");
+    throw Object.assign(new Error("private diagnostic"), { code: 403 });
   };
-  await assert.rejects(
-    initializeCosmos(cosmosSettings(config), connect),
-    (error: Error) => {
-      assert.match(error.message, /Cosmos startup check failed/);
-      assert.ok(!error.message.includes("private diagnostic"));
-      return true;
+  assert.equal(
+    await initializeCosmos(cosmosSettings(config), connect, (message) => {
+      messages.push(message);
+    }),
+    undefined,
+  );
+  assert.match(messages[0], /HTTP 403/);
+  assert.match(messages[0], /site remains running/);
+  assert.ok(!messages[0].includes("private diagnostic"));
+  assert.equal(disposals, 1);
+  const brokenFactory = (() => {
+    throw new Error("private credential error");
+  }) as typeof createCosmosConnection;
+  assert.equal(
+    await initializeCosmos(cosmosSettings(config), brokenFactory, (message) => {
+      messages.push(message);
+    }),
+    undefined,
+  );
+  assert.ok(!messages[1].includes("private credential error"));
+});
+
+test("invalid Cosmos configuration logs once without using insecure fallback credentials", async () => {
+  const messages: string[] = [];
+  const result = await initializeCosmosFromEnvironment(
+    { ...config, NODE_ENV: "production", COSMOS_AUTH_MODE: "azure-cli" },
+    (message) => {
+      messages.push(message);
     },
   );
-  assert.equal(disposals, 1);
+  assert.equal(result, undefined);
+  assert.equal(messages.length, 1);
+  assert.match(messages[0], /Configuration invalid or incomplete/);
 });
