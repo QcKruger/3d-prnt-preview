@@ -45,6 +45,20 @@ const text = (value: unknown, limit: number): value is string =>
   value.length <= limit &&
   !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
 
+// Quoted JSON projections and bracket access also support reserved SQL names
+// such as "value" and "desc". Do not interpolate request-supplied fields here.
+const publicContentQuery = `SELECT TOP 1000 VALUE {
+  "id": c["id"], "EntityType": c["EntityType"],
+  "schemaVersion": c["schemaVersion"], "sortOrder": c["sortOrder"],
+  "productId": c["productId"], "name": c["name"],
+  "category": c["category"], "priceCents": c["priceCents"],
+  "currency": c["currency"], "desc": c["desc"],
+  "color": c["color"], "shape": c["shape"], "tag": c["tag"],
+  "value": c["value"], "label": c["label"],
+  "question": c["question"], "answer": c["answer"],
+  "title": c["title"], "description": c["description"], "icon": c["icon"]
+} FROM c WHERE c["EntityType"] IN ('Product', 'Category', 'Faq', 'Service', 'ProcessStep')`;
+
 // Explicitly project and validate public content; never return raw Cosmos items.
 export function parseContent(records: unknown[]): StorefrontContent {
   const content = emptyContent();
@@ -169,10 +183,10 @@ export function createContentSource(
         connection = connect(settings);
       }
       const { resources } = await connection.container.items
-        .query<unknown>(
-          "SELECT TOP 1000 c.id, c.EntityType, c.schemaVersion, c.sortOrder, c.productId, c.name, c.category, c.priceCents, c.currency, c.desc, c.color, c.shape, c.tag, c.value, c.label, c.question, c.answer, c.title, c.description, c.icon FROM c WHERE c.EntityType IN ('Product', 'Category', 'Faq', 'Service', 'ProcessStep')",
-          { maxItemCount: 100, abortSignal: AbortSignal.timeout(8_000) },
-        )
+        .query<unknown>(publicContentQuery, {
+          maxItemCount: 100,
+          abortSignal: AbortSignal.timeout(8_000),
+        })
         .fetchAll();
       return { available: true, content: parseContent(resources) };
     } catch (error) {

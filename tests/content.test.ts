@@ -100,7 +100,7 @@ test("Cosmos empty results, failures and recovery never retain or substitute loc
       items: {
         query(sql: string) {
           assert.match(sql, /TOP 1000/);
-          assert.match(sql, /WHERE c.EntityType IN/);
+          assert.match(sql, /WHERE c\["EntityType"\] IN/);
           return {
             fetchAll: async () => {
               calls++;
