@@ -28,6 +28,11 @@ test("checkout posts the signed server-priced form to PayFast sandbox", async ({
   await cart
     .getByRole("button", { name: "CONTINUE TO PAYFAST TEST", exact: true })
     .click();
+  await expect(cart.getByText("Checkout saved", { exact: true })).toBeVisible();
+  await expect(cart.getByLabel("Private tracking link")).toHaveValue(/#track=/);
+  await cart
+    .getByRole("button", { name: "OPEN PAYFAST TEST ↗", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Sandbox handoff captured" }),
   ).toBeVisible();
@@ -35,12 +40,14 @@ test("checkout posts the signed server-priced form to PayFast sandbox", async ({
   expect(submitted?.get("merchant_id")).toBe("10004002");
   expect(submitted?.get("signature")).toMatch(/^[\da-f]{32}$/);
   expect(submitted?.get("return_url")).toBe(
-    "https://qckruger.github.io/3d-prnt-preview/",
+    "https://3dprntweb-e2hwa9g0hdc8g3fj.westus3-01.azurewebsites.net/?payment=return",
   );
   expect(submitted?.get("cancel_url")).toBe(
-    "https://qckruger.github.io/3d-prnt-preview/",
+    "https://3dprntweb-e2hwa9g0hdc8g3fj.westus3-01.azurewebsites.net/?payment=cancel",
   );
-  expect(submitted?.has("notify_url")).toBe(false);
+  expect(submitted?.get("notify_url")).toBe(
+    "https://3dprntweb-e2hwa9g0hdc8g3fj.westus3-01.azurewebsites.net/api/payment/notify",
+  );
   expect(submitted?.has("passphrase")).toBe(false);
 });
 

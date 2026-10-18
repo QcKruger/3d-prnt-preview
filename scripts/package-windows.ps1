@@ -17,6 +17,9 @@ foreach ($name in @('dist', 'server', 'package.json', 'package-lock.json')) {
 $null = New-Item -ItemType Directory -Path (Join-Path $target 'src') -Force
 Copy-Item -LiteralPath (Join-Path $root 'src/content.ts') -Destination (Join-Path $target 'src/content.ts')
 Copy-Item -LiteralPath (Join-Path $root 'src/types.ts') -Destination (Join-Path $target 'src/types.ts')
+Copy-Item -LiteralPath (Join-Path $root 'src/returns.ts') -Destination (Join-Path $target 'src/returns.ts')
+Copy-Item -LiteralPath (Join-Path $root 'src/tracking.ts') -Destination (Join-Path $target 'src/tracking.ts')
+Copy-Item -LiteralPath (Join-Path $root 'src/fulfilment.ts') -Destination (Join-Path $target 'src/fulfilment.ts')
 # Prevent accidental local-data fallback in the deployed package.
 Remove-Item -LiteralPath (Join-Path $target 'server/local-content.ts')
 foreach ($name in @('iisnode.cjs', 'web.config')) {

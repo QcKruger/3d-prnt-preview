@@ -5,10 +5,15 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { products } from "../src/data/catalogue.ts";
 import { localContent } from "../server/local-content.ts";
+import { createGuestJourney } from "../server/guest-journey.ts";
+import { unavailableReturns } from "../server/returns.ts";
+import { fulfilmentSettings } from "../server/fulfilment.ts";
 import {
   createCheckout,
   createPaymentHandler,
   DEFAULT_RETURN_URL,
+  DEFAULT_CANCEL_URL,
+  DEFAULT_NOTIFY_URL,
   payfastEncode,
   sandboxSettings,
   signFields,
@@ -53,8 +58,8 @@ test("checkout signs server catalogue prices, sandbox destination and exact GitH
   assert.equal(checkout.action, "https://sandbox.payfast.co.za/eng/process");
   assert.equal(checkout.fields.amount, "457.00");
   assert.equal(checkout.fields.return_url, DEFAULT_RETURN_URL);
-  assert.equal(checkout.fields.cancel_url, DEFAULT_RETURN_URL);
-  assert.equal(checkout.fields.notify_url, undefined);
+  assert.equal(checkout.fields.cancel_url, DEFAULT_CANCEL_URL);
+  assert.equal(checkout.fields.notify_url, DEFAULT_NOTIFY_URL);
   assert.equal(checkout.fields.passphrase, undefined);
   assert.match(checkout.fields.m_payment_id, /^3D-[\da-f-]{36}$/);
   assert.equal(
@@ -120,6 +125,10 @@ test("custom sandbox credentials are configured together and redirect URLs requi
 test("HTTP API handles config, signed checkout, malformed payloads and unsupported requests", async () => {
   const server = createServer(
     createPaymentHandler(settings, {
+      guestJourney: createGuestJourney(
+        { NODE_ENV: "development" },
+        unavailableReturns,
+      ),
       contentSource: {
         get: async () => ({ available: true, content: localContent }),
         close() {},
@@ -137,7 +146,8 @@ test("HTTP API handles config, signed checkout, malformed payloads and unsupport
     assert.deepEqual(await config.json(), {
       enabled: true,
       mode: "sandbox",
-      fulfilment: "collection",
+      fulfilment: "collection-or-delivery",
+      fulfilmentOptions: fulfilmentSettings({}),
       notificationsEnabled: false,
     });
     const checkout = await fetch(base + "/api/payment/checkout", {

@@ -7,6 +7,8 @@ import { once } from "node:events";
 import { createPaymentHandler, sandboxSettings } from "../server/payfast.ts";
 import { checkoutLimiter } from "../server/security.ts";
 import { localContent } from "../server/local-content.ts";
+import { createGuestJourney } from "../server/guest-journey.ts";
+import { unavailableReturns } from "../server/returns.ts";
 
 async function listen(server: Server) {
   server.listen(0, "127.0.0.1");
@@ -107,6 +109,10 @@ test("rate limiter expires, caps tracking entries, and enforces a global limit",
 test("HTTP rate limiting cannot be bypassed by spoofed forwarded addresses", async () => {
   const server = createServer(
     createPaymentHandler(sandboxSettings({}), {
+      guestJourney: createGuestJourney(
+        { NODE_ENV: "development" },
+        unavailableReturns,
+      ),
       contentSource: {
         get: async () => ({ available: true, content: localContent }),
         close() {},
@@ -149,6 +155,10 @@ test("HTTP rate limiting cannot be bypassed by spoofed forwarded addresses", asy
 test("cross-site checkout requests are rejected without permissive CORS", async () => {
   const server = createServer(
     createPaymentHandler(sandboxSettings({}), {
+      guestJourney: createGuestJourney(
+        { NODE_ENV: "development" },
+        unavailableReturns,
+      ),
       contentSource: {
         get: async () => ({ available: true, content: localContent }),
         close() {},
@@ -220,7 +230,7 @@ test("production policy blocks framing and inline scripts while allowing sandbox
     assert.equal(csp.includes("unsafe-inline"), false);
     assert.match(
       csp,
-      /form-action 'self' https:\/\/sandbox.payfast.co.za https:\/\/qckruger.github.io/,
+      /form-action 'self' https:\/\/sandbox.payfast.co.za https:\/\/3dprntweb-e2hwa9g0hdc8g3fj.westus3-01.azurewebsites.net/,
     );
     assert.equal(response.headers.get("x-frame-options"), "DENY");
     assert.equal(

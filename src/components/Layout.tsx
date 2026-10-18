@@ -12,8 +12,9 @@ export function PaymentNotice() {
           : "Returned from sandbox checkout"}
       </strong>
       <p>
-        No real payment or order has been placed. Payment notifications are not
-        connected, so returning to this page does not confirm a payment.
+        No real payment or order has been placed. Returning to this page does
+        not confirm a payment. Open your private tracking link to see the status
+        verified through PayFast’s sandbox notification.
       </p>
     </div>
   );
@@ -59,6 +60,7 @@ export function Header({
           <a href="#shop">SHOP</a>
           <a href="#services">SERVICES</a>
           <a href="#custom">CUSTOM PRINTS</a>
+          <a href="#returns">RETURNS</a>
         </nav>
         <div className="nav-actions">
           <button
@@ -101,6 +103,8 @@ export function Header({
           ["#shop", "Shop products"],
           ["#services", "Services"],
           ["#custom", "Custom prints"],
+          ["#returns", "Returns"],
+          ["#tracking", "Track a request"],
           ["#contact", "Contact"],
         ].map(([e, t]) => (
           <a href={e} onClick={navigation.close} key={e}>
@@ -154,6 +158,8 @@ export function Footer() {
             <a href="#services">Printing services</a>
             <a href="#custom">Custom print enquiries</a>
             <a href="#faq">Frequently asked questions</a>
+            <a href="#returns">Log a return request</a>
+            <a href="#tracking">Track an order or return</a>
           </div>
           <div>
             <h3>Get in touch</h3>
@@ -170,8 +176,9 @@ export function Footer() {
               confirmed before payment.
             </p>
             <p>
-              Delivery, returns and privacy information will be published before
-              online orders open.
+              Delivery terms and the full returns and privacy policies will be
+              published before online orders open. You can use the returns form
+              to log a request today.
             </p>
           </div>
         </div>

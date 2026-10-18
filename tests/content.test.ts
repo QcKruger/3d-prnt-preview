@@ -12,6 +12,8 @@ import {
 import type { ContentSource } from "../server/content.ts";
 import type { createCosmosConnection } from "../server/cosmos.ts";
 import { createPaymentHandler, sandboxSettings } from "../server/payfast.ts";
+import { createGuestJourney } from "../server/guest-journey.ts";
+import { unavailableReturns } from "../server/returns.ts";
 
 const records = JSON.parse(
   readFileSync(
@@ -148,7 +150,13 @@ test("content API and checkout share the current server catalogue; outages canno
   };
   const source: ContentSource = { get: async () => result, close() {} };
   const server = createServer(
-    createPaymentHandler(sandboxSettings({}), { contentSource: source }),
+    createPaymentHandler(sandboxSettings({}), {
+      contentSource: source,
+      guestJourney: createGuestJourney(
+        { NODE_ENV: "development" },
+        unavailableReturns,
+      ),
+    }),
   );
   server.listen(0, "127.0.0.1");
   await once(server, "listening");

@@ -167,7 +167,7 @@ export function checkRequestOrigin(request: IncomingMessage) {
   // There are no authenticated sessions, but reject cross-site browser API requests.
   // JSON + no CORS already blocks ordinary cross-site forms; enforce Fetch Metadata too.
   if (request.headers["sec-fetch-site"] === "cross-site")
-    throw new HttpError(403, "Cross-site checkout is not allowed.");
+    throw new HttpError(403, "Cross-site requests are not allowed.");
   const origin = request.headers.origin;
   if (origin) {
     try {
@@ -179,15 +179,15 @@ export function checkRequestOrigin(request: IncomingMessage) {
       )
         throw new Error();
     } catch {
-      throw new HttpError(403, "Cross-site checkout is not allowed.");
+      throw new HttpError(403, "Cross-site requests are not allowed.");
     }
   }
 }
 
-export function readJson(
+export function readText(
   request: IncomingMessage,
   timeoutMs = 10_000,
-): Promise<unknown> {
+): Promise<string> {
   const limit = 16_384;
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -211,7 +211,7 @@ export function readJson(
     const onData = (chunk: Buffer) => {
       size += chunk.length;
       if (size > limit) {
-        fail(new HttpError(413, "Checkout request is too large."));
+        fail(new HttpError(413, "Request body is too large."));
         return;
       }
       chunks.push(chunk);
@@ -220,22 +220,20 @@ export function readJson(
       cleanup();
       try {
         resolve(
-          JSON.parse(
-            new TextDecoder("utf-8", { fatal: true }).decode(
-              Buffer.concat(chunks),
-            ),
+          new TextDecoder("utf-8", { fatal: true }).decode(
+            Buffer.concat(chunks),
           ),
         );
       } catch {
-        reject(new HttpError(400, "Invalid JSON."));
+        reject(new HttpError(400, "Invalid request encoding."));
       }
     };
     const timer = setTimeout(
-      () => fail(new HttpError(408, "Checkout request timed out.")),
+      () => fail(new HttpError(408, "Request body timed out.")),
       timeoutMs,
     );
     if (Number(request.headers["content-length"]) > limit) {
-      fail(new HttpError(413, "Checkout request is too large."));
+      fail(new HttpError(413, "Request body is too large."));
       return;
     }
     request.on("data", onData);
@@ -243,6 +241,18 @@ export function readJson(
     request.on("error", onError);
     request.on("aborted", onAborted);
   });
+}
+
+export async function readJson(
+  request: IncomingMessage,
+  timeoutMs = 10_000,
+): Promise<unknown> {
+  const text = await readText(request, timeoutMs);
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new HttpError(400, "Invalid JSON.");
+  }
 }
 
 export function errorResponse(

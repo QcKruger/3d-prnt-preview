@@ -34,9 +34,9 @@ The Cosmos account is assumed to be in `3D-PRNT`; adjust the setup script's Cosm
 
 Azure Deployment Center manages the deployment identity and its federation. It is separate from the running app's **system-assigned** identity used for Cosmos. Runtime Cosmos permissions and application settings still require the configuration below; the existence of the GitHub workflow does not verify those permissions. Protect `main` with PR reviews and required checks because changes on that branch can deploy using the deployment identity.
 
-The deployment job enables the app's system-assigned identity and sets `WEBSITE_RUN_FROM_PACKAGE=1`, `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, `WEBSITE_NODE_DEFAULT_VERSION=~24`, `NODE_ENV=production`, `HOST=0.0.0.0` and the supplied server-only Cosmos identifiers. It derives `APP_ORIGIN` from the actual default hostname and enables HTTPS-only. Existing PayFast secret settings are preserved; default return/cancel URLs remain the previously requested GitHub Pages destination. If Pages is disabled, update those two server settings to the intended Azure return destination.
+The deployment job enables the app's system-assigned identity and sets `WEBSITE_RUN_FROM_PACKAGE=1`, `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, `WEBSITE_NODE_DEFAULT_VERSION=~24`, `NODE_ENV=production`, `HOST=0.0.0.0` and the supplied server-only Cosmos identifiers. It derives `APP_ORIGIN` from the actual default hostname and enables HTTPS-only. Existing PayFast merchant secrets are preserved. It sets `PAYFAST_RETURN_URL=https://<hostname>/?payment=return`, `PAYFAST_CANCEL_URL=https://<hostname>/?payment=cancel` and `PAYFAST_NOTIFY_URL=https://<hostname>/api/payment/notify` and checks that sandbox notifications are enabled after deployment.
 
-The deployment identity must have Website Contributor on the web app for those runtime settings. It is not granted Cosmos role-administration permissions. The workflow prints the app's system-assigned principal ID; an authorised Azure operator must grant that principal Cosmos DB Built-in Data Reader on `/dbs/3dprnt/colls/Items`, using the script below or equivalent native Cosmos role assignment. Without this grant, Cosmos access is disabled and logged while the site remains available. The post-deployment sandbox API check confirms site availability, not Cosmos readiness. The Azure CLI session available during implementation could not see the supplied subscription, so this data-role assignment cannot be verified locally.
+The deployment identity must have Website Contributor on the web app for those runtime settings. It is not granted Cosmos role-administration permissions. The workflow prints the app's system-assigned principal ID; that runtime principal needs **Cosmos DB Built-in Data Contributor** on `/dbs/3dprnt/colls/Items` for saved orders, returns, tracking grants and payment transactions/events. The user has already assigned this container-scoped role. Without appropriate permissions, data operations fail closed and log while the site remains available. The post-deployment API check confirms site availability, not database readiness. No new role assignment is performed by the deployment workflow.
 
 Create the Cosmos account, database and container separately. This code does not create resources, choose/change a partition key, or migrate data. Database/container names are case-sensitive. Permit the host through Cosmos networking; managed identity supplies authentication, not network connectivity. Prefer private endpoints with App Service VNet integration where available.
 
@@ -54,10 +54,11 @@ Run this script explicitly with your real resource names; it has not been run au
   -CosmosResourceGroup 'YOUR_COSMOS_RESOURCE_GROUP' `
   -CosmosAccount 'YOUR_COSMOS_ACCOUNT' `
   -Database 'YOUR_DATABASE' `
-  -Container 'YOUR_CONTAINER'
+  -Container 'YOUR_CONTAINER' `
+  -DataRole Contributor
 ```
 
-The script enables the web app's system-assigned identity, grants **Cosmos DB Built-in Data Reader** at `/dbs/<database>/colls/<container>`, enables HTTPS-only, and sets these server-side App Service environment settings:
+With `-DataRole Contributor`, the script enables the web app's system-assigned identity, grants **Cosmos DB Built-in Data Contributor** at `/dbs/<database>/colls/<container>`, enables HTTPS-only, and sets these server-side App Service environment settings:
 
 | Setting            | Value                           |
 | ------------------ | ------------------------------- |
@@ -71,7 +72,7 @@ The script enables the web app's system-assigned identity, grants **Cosmos DB Bu
 
 If using a custom domain, set `APP_ORIGIN` to its exact HTTPS origin afterward. Runtime connection settings contain identifiers, not credentials. Do not add `VITE_` prefixes. `AZURE_CLIENT_ID` is not used to select an identity; the managed-identity credential is constructed without an identity selector. Each deployment slot needs its own identity, permissions and appropriate settings; do not assume a slot swap moves the identity.
 
-Reader is enough for the current catalogue and site-content queries. When implementing writes, use `-DataRole Contributor` to grant **Cosmos DB Built-in Data Contributor** at the same container scope, or define a narrower custom data role for the necessary operations. Re-running with a different role adds that assignment; remove obsolete assignments separately. No resource-group-wide Contributor role is granted to the app.
+The script's default Reader role only supports public-content queries and is insufficient for the current write features. Use the explicit Contributor argument above or a reviewed custom data role covering the necessary operations at the same container scope. Re-running with a different role adds that assignment; remove obsolete assignments separately. No resource-group-wide Contributor role is granted to the app.
 
 For an account whose clients have all migrated to identity authentication, add `-DisableKeyAuthentication` to disable key authentication account-wide. This is optional because it affects every client of that account. The application itself never uses keys either way. Existing unrelated settings/credentials and role assignments are not removed by this script; review and remove obsolete ones separately.
 

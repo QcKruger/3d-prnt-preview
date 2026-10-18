@@ -3,6 +3,15 @@ import { createAppServer } from "./app.ts";
 import { sandboxSettings } from "./payfast.ts";
 import { createContentSource } from "./content.ts";
 import { listenerTarget } from "./listener.ts";
+import { createReturnStore } from "./returns.ts";
+import { createGuestJourney } from "./guest-journey.ts";
+import { fulfilmentSettings } from "./fulfilment.ts";
+import { createPrivateRecords } from "./private-records.ts";
+import {
+  createPaymentNotifications,
+  isAzureIisProxy,
+  notificationSourceAllowed,
+} from "./payfast-notifications.ts";
 
 const host = process.env.HOST || "127.0.0.1";
 const port = listenerTarget(process.env.PORT);
@@ -27,6 +36,21 @@ if (!["127.0.0.1", "localhost", "::1"].includes(host) && !origin)
   );
 const paymentSettings = sandboxSettings(process.env);
 const contentSource = createContentSource(process.env);
+const returnStore = createReturnStore(process.env);
+const privateRecords = createPrivateRecords(process.env);
+const guestJourney = createGuestJourney(
+  process.env,
+  returnStore,
+  privateRecords,
+);
+const paymentNotifications = createPaymentNotifications(
+  paymentSettings,
+  privateRecords,
+  {
+    sourceAllowed: (request) =>
+      notificationSourceAllowed(request, isAzureIisProxy(process.env)),
+  },
+);
 const server = createAppServer(
   fileURLToPath(new URL("../dist/", import.meta.url)),
   paymentSettings,
@@ -34,10 +58,16 @@ const server = createAppServer(
     httpsOnly: Boolean(origin) || process.env.SECURITY_HTTPS_ONLY === "true",
     allowedHost: origin?.hostname,
     contentSource,
+    returnStore,
+    guestJourney,
+    paymentNotifications,
+    fulfilmentConfig: fulfilmentSettings(process.env),
   },
 );
 server.once("close", () => {
   contentSource.close();
+  returnStore.close();
+  guestJourney.close();
 });
 const listening = () => {
   console.log("Sandbox site running.");

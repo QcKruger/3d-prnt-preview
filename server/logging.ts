@@ -1,7 +1,8 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
-export type CosmosPhase = "configuration" | "client" | "query" | "validation";
+export type CosmosPhase =
+  "configuration" | "client" | "query" | "validation" | "write";
 
 // Inspect provider text only to classify it. Never copy tokens, headers, document
 // bodies, URLs with credentials, or arbitrary error messages into the log.
@@ -112,7 +113,17 @@ export function describeCosmosFailure(
 
 // Callers supply controlled messages, never raw provider errors or credentials.
 export async function logCosmosFailure(message: string): Promise<void> {
-  const entry = `${new Date().toISOString()} [Cosmos] ${message}`;
+  return logOperational("Cosmos", "cosmos.log", message);
+}
+export async function logPayfastEvent(message: string): Promise<void> {
+  return logOperational("PayFast", "payfast.log", message);
+}
+async function logOperational(
+  label: string,
+  filename: string,
+  message: string,
+): Promise<void> {
+  const entry = `${new Date().toISOString()} [${label}] ${message}`;
   console.error(entry);
   // IISNode stdout capture is disabled. Keep an operational log outside wwwroot
   // on Azure's writable home volume instead of inside the deployment package.
@@ -120,7 +131,7 @@ export async function logCosmosFailure(message: string): Promise<void> {
     try {
       const directory = join(process.env.HOME, "LogFiles", "3dprnt");
       await mkdir(directory, { recursive: true });
-      await appendFile(join(directory, "cosmos.log"), entry + "\n", "utf8");
+      await appendFile(join(directory, filename), entry + "\n", "utf8");
     } catch {
       console.error("[Cosmos] Could not write the Azure operational log.");
     }

@@ -74,12 +74,15 @@ jobs:
           principal=$(az webapp identity assign --resource-group 3D-PRNT --name 3dprntweb --query principalId --output tsv --only-show-errors)
           [[ "$principal" =~ ^[a-fA-F0-9-]{36}$ ]]
           echo "Runtime system-assigned principal: $principal"
-          echo "This principal needs Cosmos DB Built-in Data Reader on /dbs/3dprnt/colls/Items."
+          echo "This principal needs Cosmos DB Built-in Data Contributor on /dbs/3dprnt/colls/Items."
           az webapp config appsettings set --resource-group 3D-PRNT --name 3dprntweb --only-show-errors --output none --settings \
             WEBSITE_NODE_DEFAULT_VERSION=~24 WEBSITE_RUN_FROM_PACKAGE=1 SCM_DO_BUILD_DURING_DEPLOYMENT=false \
             NODE_ENV=production HOST=0.0.0.0 "APP_ORIGIN=https://$hostname" \
             COSMOS_AUTH_MODE=managed-identity COSMOS_ENDPOINT=https://3dprntdb.documents.azure.com \
-            COSMOS_DATABASE=3dprnt COSMOS_CONTAINER=Items
+            COSMOS_DATABASE=3dprnt COSMOS_CONTAINER=Items \
+            "PAYFAST_RETURN_URL=https://$hostname/?payment=return" \
+            "PAYFAST_CANCEL_URL=https://$hostname/?payment=cancel" \
+            "PAYFAST_NOTIFY_URL=https://$hostname/api/payment/notify"
           az webapp update --resource-group 3D-PRNT --name 3dprntweb --https-only true --only-show-errors --output none
           echo "AZURE_APP_HOST=$hostname" >> "$GITHUB_ENV"
       - name: Deploy to Azure Web App
@@ -94,4 +97,4 @@ jobs:
         run: |
           curl --fail --silent --show-error --retry 8 --retry-delay 10 --retry-all-errors --max-time 20 \
             "https://$AZURE_APP_HOST/api/payment/config" -o payment-config.json
-          jq -e '.mode == "sandbox" and .notificationsEnabled == false' payment-config.json
+          jq -e '.mode == "sandbox" and .notificationsEnabled == true' payment-config.json

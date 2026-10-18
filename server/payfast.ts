@@ -2,12 +2,20 @@ import { createHash, randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { unavailableContent } from "./content.ts";
 import type { ContentSource } from "./content.ts";
+import { parseReturn, unavailableReturns } from "./returns.ts";
+import type { ReturnStore } from "./returns.ts";
+import { fulfilmentSettings, parseFulfilment } from "./fulfilment.ts";
+import type { FulfilmentConfig } from "../src/fulfilment.ts";
+import { checkoutRequestId, unavailableJourney } from "./guest-journey.ts";
+import type { GuestJourney } from "./guest-journey.ts";
+import type { PaymentNotifications } from "./payfast-notifications.ts";
 import {
   checkRequestOrigin,
   checkoutLimiter,
   errorResponse,
   HttpError,
   readJson,
+  readText,
   requestPath,
   securityHeaders,
   checkRequestHost,
@@ -20,7 +28,11 @@ import type {
 } from "../src/types.ts";
 
 export const SANDBOX_ACTION = "https://sandbox.payfast.co.za/eng/process";
-export const DEFAULT_RETURN_URL = "https://qckruger.github.io/3d-prnt-preview/";
+export const DEFAULT_SITE_URL =
+  "https://3dprntweb-e2hwa9g0hdc8g3fj.westus3-01.azurewebsites.net";
+export const DEFAULT_RETURN_URL = `${DEFAULT_SITE_URL}/?payment=return`;
+export const DEFAULT_CANCEL_URL = `${DEFAULT_SITE_URL}/?payment=cancel`;
+export const DEFAULT_NOTIFY_URL = `${DEFAULT_SITE_URL}/api/payment/notify`;
 
 export interface SandboxSettings {
   merchantId: string;
@@ -28,6 +40,7 @@ export interface SandboxSettings {
   passphrase: string;
   returnUrl: string;
   cancelUrl: string;
+  notifyUrl: string;
 }
 
 export function sandboxSettings(
@@ -52,9 +65,16 @@ export function sandboxSettings(
     throw new Error("Set sandbox merchant ID, key, and passphrase together.");
   if (passphrase && passphrase.length > 32)
     throw new Error("Sandbox passphrases must be at most 32 characters.");
-  const returnUrl = env.PAYFAST_RETURN_URL || DEFAULT_RETURN_URL;
-  const cancelUrl = env.PAYFAST_CANCEL_URL || DEFAULT_RETURN_URL;
-  for (const url of [returnUrl, cancelUrl]) {
+  // Migrate the old preview defaults even if an existing .env/App Service
+  // setting still contains the retired GitHub Pages destination.
+  const redirect = (value: string | undefined, fallback: string) =>
+    !value || value === "https://qckruger.github.io/3d-prnt-preview/"
+      ? fallback
+      : value;
+  const returnUrl = redirect(env.PAYFAST_RETURN_URL, DEFAULT_RETURN_URL);
+  const cancelUrl = redirect(env.PAYFAST_CANCEL_URL, DEFAULT_CANCEL_URL);
+  const notifyUrl = env.PAYFAST_NOTIFY_URL || DEFAULT_NOTIFY_URL;
+  for (const url of [returnUrl, cancelUrl, notifyUrl]) {
     const destination = new URL(url);
     if (
       destination.protocol !== "https:" ||
@@ -63,6 +83,15 @@ export function sandboxSettings(
     )
       throw new Error("Payment redirects must use HTTPS.");
   }
+  const notification = new URL(notifyUrl);
+  if (
+    notification.pathname !== "/api/payment/notify" ||
+    notification.search ||
+    notification.hash
+  )
+    throw new Error(
+      "PAYFAST_NOTIFY_URL must be the HTTPS /api/payment/notify endpoint, without query parameters or fragments.",
+    );
   return {
     // PayFast's documented public sandbox merchant. Never use live credentials here.
     merchantId: merchantId || "10004002",
@@ -70,6 +99,7 @@ export function sandboxSettings(
     passphrase: passphrase || "payfast",
     returnUrl,
     cancelUrl,
+    notifyUrl,
   };
 }
 
@@ -98,6 +128,7 @@ export function createCheckout(
   input: unknown,
   settings: SandboxSettings,
   products: readonly Product[],
+  options: { fulfilment?: FulfilmentConfig; reference?: string } = {},
 ): PaymentRedirect {
   if (!input || typeof input !== "object")
     throw new Error("Invalid checkout details.");
@@ -131,20 +162,26 @@ export function createCheckout(
     quantities.set(id, quantity);
     totalCents += Math.round(product.price * 100);
   }
-  const reference = `3D-${randomUUID()}`;
+  const fulfilment = parseFulfilment(
+    request.fulfilment,
+    options.fulfilment ?? fulfilmentSettings({}),
+  );
+  totalCents += fulfilment.feeCents;
+  const reference = options.reference ?? `3D-${randomUUID()}`;
   // Preserve the documented custom-integration field order when signing.
   const fields: Record<string, string> = {
     merchant_id: settings.merchantId,
     merchant_key: settings.merchantKey,
     return_url: settings.returnUrl,
     cancel_url: settings.cancelUrl,
+    notify_url: settings.notifyUrl,
     name_first: firstName,
     name_last: lastName,
     email_address: email,
     m_payment_id: reference,
     amount: (totalCents / 100).toFixed(2),
     item_name: `3D PRNT sandbox ${reference}`,
-    item_description: `${request.productIds.length} test item(s). Collection only. No real order.`,
+    item_description: `${request.productIds.length} test item(s). ${fulfilment.method === "collection" ? "Collection" : "Delivery"}. Sandbox only; payment unverified.`,
   };
   fields.signature = signFields(fields, settings.passphrase);
   return { action: SANDBOX_ACTION, fields };
@@ -169,18 +206,32 @@ export function createPaymentHandler(
     allowedHost?: string;
     requestLimiter?: ReturnType<typeof checkoutLimiter>;
     contentSource?: ContentSource;
+    returnStore?: ReturnStore;
+    returnLimiter?: ReturnType<typeof checkoutLimiter>;
+    fulfilmentConfig?: FulfilmentConfig;
+    guestJourney?: GuestJourney;
+    paymentNotifications?: PaymentNotifications;
   } = {},
 ) {
   const limit = options.limiter || checkoutLimiter();
   const contentSource = options.contentSource || unavailableContent;
+  const returnStore = options.returnStore || unavailableReturns;
+  const journey = options.guestJourney || unavailableJourney;
+  const fulfilmentConfig = options.fulfilmentConfig || fulfilmentSettings({});
+  const trackingLimit = checkoutLimiter({ limit: 30, globalLimit: 500 });
+  const notificationLimit = checkoutLimiter({ limit: 120, globalLimit: 500 });
+  const returnLimit =
+    options.returnLimiter ||
+    checkoutLimiter({ limit: 5, globalLimit: 50, windowMs: 600_000 });
   const requests =
     options.requestLimiter ||
     checkoutLimiter({ limit: 300, globalLimit: 5000 });
   const config: PaymentConfig = {
     enabled: true,
     mode: "sandbox",
-    fulfilment: "collection",
-    notificationsEnabled: false,
+    fulfilment: "collection-or-delivery",
+    fulfilmentOptions: fulfilmentConfig,
+    notificationsEnabled: Boolean(options.paymentNotifications),
   };
   return async (
     request: IncomingMessage,
@@ -218,6 +269,49 @@ export function createPaymentHandler(
           request.headers["transfer-encoding"])
       )
         throw new HttpError(400, "This request must not contain a body.");
+      if (pathname === "/api/payment/notify") {
+        if (request.method !== "POST") {
+          response.setHeader("Allow", "POST");
+          throw new HttpError(405, "Use POST for payment notifications.");
+        }
+        const retry = notificationLimit(
+          request.socket.remoteAddress || "unknown",
+        );
+        if (retry) {
+          response.setHeader("Retry-After", String(retry));
+          throw new HttpError(429, "Too many payment notifications.");
+        }
+        // This is a server-to-server route. Browser origin checks apply to all
+        // customer mutation routes; ITNs use signature/source/provider checks.
+        if (
+          request.headers["content-type"]
+            ?.split(";")[0]
+            .trim()
+            .toLowerCase() !== "application/x-www-form-urlencoded"
+        )
+          throw new HttpError(
+            415,
+            "Payment notifications require form encoding.",
+          );
+        if (
+          request.headers["content-encoding"] &&
+          request.headers["content-encoding"] !== "identity"
+        )
+          throw new HttpError(
+            415,
+            "Compressed notifications are not accepted.",
+          );
+        const body = await readText(request, options.bodyTimeoutMs);
+        if (!options.paymentNotifications)
+          throw new HttpError(503, "Payment notifications are unavailable.");
+        await options.paymentNotifications.receive(body, request);
+        response.writeHead(200, {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        response.end("OK");
+        return;
+      }
       if (pathname === "/api/content") {
         if (request.method !== "GET") {
           response.setHeader("Allow", "GET");
@@ -225,6 +319,86 @@ export function createPaymentHandler(
         }
         const result = await contentSource.get();
         json(response, result.available ? 200 : 503, result.content);
+        return;
+      }
+      if (pathname === "/api/returns") {
+        if (request.method !== "POST") {
+          response.setHeader("Allow", "POST");
+          throw new HttpError(405, "Use POST to log a return request.");
+        }
+        checkRequestOrigin(request);
+        const retry = returnLimit(request.socket.remoteAddress || "unknown");
+        if (retry) {
+          response.setHeader("Retry-After", String(retry));
+          throw new HttpError(
+            429,
+            "Too many return requests. Please try again later.",
+          );
+        }
+        if (
+          request.headers["content-encoding"] &&
+          request.headers["content-encoding"] !== "identity"
+        )
+          throw new HttpError(
+            415,
+            "Compressed request bodies are not accepted.",
+          );
+        if (
+          request.headers["content-type"]
+            ?.split(";")[0]
+            .trim()
+            .toLowerCase() !== "application/json"
+        )
+          throw new HttpError(415, "Return requests require JSON.");
+        const input = parseReturn(
+          await readJson(request, options.bodyTimeoutMs),
+        );
+        const receipt = await returnStore.submit(input);
+        // A successful case remains successful if issuing its optional tracking
+        // link fails. Never issue a link before the case has been saved.
+        try {
+          receipt.tracking = await journey.returnTracking(receipt.reference);
+        } catch {
+          /* Keep the saved reference usable for support. */
+        }
+        json(response, 201, receipt);
+        return;
+      }
+      if (pathname === "/api/tracking/view") {
+        if (request.method !== "POST") {
+          response.setHeader("Allow", "POST");
+          throw new HttpError(405, "Use a private tracking link.");
+        }
+        checkRequestOrigin(request);
+        const retry = trackingLimit(request.socket.remoteAddress || "unknown");
+        if (retry) {
+          response.setHeader("Retry-After", String(retry));
+          throw new HttpError(
+            429,
+            "Too many tracking attempts. Please try again shortly.",
+          );
+        }
+        if (
+          request.headers["content-encoding"] &&
+          request.headers["content-encoding"] !== "identity"
+        )
+          throw new HttpError(415, "Compressed bodies are not accepted.");
+        if (
+          request.headers["content-type"]
+            ?.split(";")[0]
+            .trim()
+            .toLowerCase() !== "application/json"
+        )
+          throw new HttpError(415, "Tracking requires JSON.");
+        const body = (await readJson(request, options.bodyTimeoutMs)) as {
+          token?: unknown;
+        } | null;
+        if (!body || typeof body.token !== "string")
+          throw new HttpError(
+            404,
+            "This tracking link is invalid or has expired.",
+          );
+        json(response, 200, await journey.view(body.token));
         return;
       }
       if (!pathname.startsWith("/api/payment/")) {
@@ -277,7 +451,10 @@ export function createPaymentHandler(
         );
       let checkout: PaymentRedirect;
       try {
-        checkout = createCheckout(input, settings, catalogue.content.products);
+        checkout = createCheckout(input, settings, catalogue.content.products, {
+          fulfilment: fulfilmentConfig,
+          reference: `3D-${checkoutRequestId(input)}`,
+        });
       } catch (error) {
         throw new HttpError(
           400,
@@ -288,6 +465,16 @@ export function createPaymentHandler(
               : "Invalid checkout details.",
         );
       }
+      const fulfilment = parseFulfilment(
+        (input as PaymentRequest).fulfilment,
+        fulfilmentConfig,
+      );
+      checkout.order = await journey.saveOrder(
+        input,
+        checkout,
+        catalogue.content.products,
+        fulfilment,
+      );
       json(response, 200, checkout);
     } catch (error) {
       errorResponse(request, response, error);

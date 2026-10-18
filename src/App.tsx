@@ -11,6 +11,8 @@ import { CustomPrints } from "./features/enquiry";
 import { useStore } from "./hooks/useStore";
 import { usePageEffects } from "./hooks/usePageEffects";
 import { useContent } from "./hooks/useContent";
+import { Returns } from "./features/returns";
+import { GuestTracking } from "./features/tracking";
 function App() {
   const content = useContent();
   let store = useStore(content);
@@ -42,6 +44,8 @@ function App() {
         <Process items={content.processSteps} />
         <CustomPrints notify={store.notify} />
         <Faq items={content.faqs} />
+        <Returns />
+        <GuestTracking />
       </main>
       <Footer />
       <div

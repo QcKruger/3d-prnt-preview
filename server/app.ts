@@ -17,6 +17,10 @@ import {
 } from "./security.ts";
 import { sendHtml } from "./html.ts";
 import type { ContentSource } from "./content.ts";
+import type { ReturnStore } from "./returns.ts";
+import type { GuestJourney } from "./guest-journey.ts";
+import type { PaymentNotifications } from "./payfast-notifications.ts";
+import type { FulfilmentConfig } from "../src/fulfilment.ts";
 
 const types: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -66,6 +70,10 @@ export function createAppServer(
     maxConnections?: number;
     maxPerAddress?: number;
     contentSource?: ContentSource;
+    returnStore?: ReturnStore;
+    guestJourney?: GuestJourney;
+    paymentNotifications?: PaymentNotifications;
+    fulfilmentConfig?: FulfilmentConfig;
   } = {},
 ) {
   const assets = builtAssets(directory);

@@ -15,14 +15,16 @@ test("renders the site without browser errors or horizontal overflow", async ({
     "Imagine it.",
   );
   await expect(page.locator(".brand-logo img").first()).toBeVisible();
-  expect(
-    await page
-      .locator(".brand-logo img")
-      .first()
-      .evaluate(
-        (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
-      ),
-  ).toBe(true);
+  await expect
+    .poll(() =>
+      page
+        .locator(".brand-logo img")
+        .first()
+        .evaluate(
+          (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
+        ),
+    )
+    .toBe(true);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -108,8 +110,12 @@ test("validates an enquiry and downloads a brief without submitting or uploading
   const save = page.getByRole("button", { name: /SAVE ENQUIRY BRIEF/ });
   await save.click();
   await expect(page.locator("#error-name")).toBeVisible();
-  await page.getByLabel("Your name *", { exact: true }).fill("Preview Tester");
   await page
+    .locator("#custom")
+    .getByLabel("Your name *", { exact: true })
+    .fill("Preview Tester");
+  await page
+    .locator("#custom")
     .getByLabel("Email address *", { exact: true })
     .fill("tester@example.com");
   await page

@@ -34,15 +34,26 @@ export interface CheckoutCustomer {
 }
 export interface PaymentRequest extends CheckoutCustomer {
   productIds: number[];
+  requestId?: string;
+  fulfilment?: import("./fulfilment").FulfilmentChoice;
 }
 export interface PaymentRedirect {
   action: string;
   fields: Record<string, string>;
+  order?: {
+    reference: string;
+    totalCents: number;
+    subtotalCents: number;
+    fulfilment: import("./fulfilment").SavedFulfilment;
+    tracking: import("./tracking").TrackingAccess;
+    localDevelopment: boolean;
+  };
 }
 export interface PaymentConfig {
   enabled: boolean;
   mode: "sandbox";
-  fulfilment: "collection";
-  notificationsEnabled: false;
+  fulfilment: "collection-or-delivery";
+  fulfilmentOptions: import("./fulfilment").FulfilmentConfig;
+  notificationsEnabled: boolean;
   reason?: string;
 }

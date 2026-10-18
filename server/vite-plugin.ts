@@ -14,6 +14,13 @@ import { sendHtml } from "./html.ts";
 import { cosmosSettings } from "./cosmos.ts";
 import { createContentSource } from "./content.ts";
 import type { ContentSource } from "./content.ts";
+import { createReturnStore } from "./returns.ts";
+import type { ReturnStore } from "./returns.ts";
+import { createGuestJourney } from "./guest-journey.ts";
+import type { GuestJourney } from "./guest-journey.ts";
+import { fulfilmentSettings } from "./fulfilment.ts";
+import { createPrivateRecords } from "./private-records.ts";
+import { createPaymentNotifications } from "./payfast-notifications.ts";
 
 export function paymentPlugin(): Plugin {
   let handler: ReturnType<typeof createPaymentHandler>;
@@ -21,6 +28,8 @@ export function paymentPlugin(): Plugin {
   let root = "";
   let output = "";
   let contentSource: ContentSource;
+  let returnStore: ReturnStore;
+  let guestJourney: GuestJourney;
   return {
     name: "payfast-sandbox-api",
     config(_config, environment) {
@@ -38,15 +47,39 @@ export function paymentPlugin(): Plugin {
         ...env,
         NODE_ENV: development ? "development" : "production",
       });
-      handler = createPaymentHandler(sandboxSettings(env), {
+      returnStore = createReturnStore({
+        ...env,
+        NODE_ENV: development ? "development" : "production",
+      });
+      const runtimeEnv = {
+        ...env,
+        NODE_ENV: development ? "development" : "production",
+      };
+      const privateRecords = createPrivateRecords(runtimeEnv);
+      guestJourney = createGuestJourney(
+        runtimeEnv,
+        returnStore,
+        privateRecords,
+      );
+      const settings = sandboxSettings(env);
+      handler = createPaymentHandler(settings, {
+        fulfilmentConfig: fulfilmentSettings(env),
+        guestJourney,
+        paymentNotifications: createPaymentNotifications(
+          settings,
+          privateRecords,
+        ),
         development,
         httpsOnly: env.SECURITY_HTTPS_ONLY === "true",
         allowedHost: origin?.hostname,
         contentSource,
+        returnStore,
       });
     },
     configureServer(server) {
       server.httpServer?.once("close", () => contentSource.close());
+      server.httpServer?.once("close", () => returnStore.close());
+      server.httpServer?.once("close", () => guestJourney.close());
       if (server.httpServer && "headersTimeout" in server.httpServer)
         hardenServer(server.httpServer as Server);
       server.middlewares.use(handler);
@@ -84,6 +117,8 @@ export function paymentPlugin(): Plugin {
     },
     configurePreviewServer(server) {
       server.httpServer.once("close", () => contentSource.close());
+      server.httpServer.once("close", () => returnStore.close());
+      server.httpServer.once("close", () => guestJourney.close());
       if ("headersTimeout" in server.httpServer)
         hardenServer(server.httpServer as Server);
       server.middlewares.use(handler);

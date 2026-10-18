@@ -1,14 +1,14 @@
 # Security scope and verification
 
-This project is a stateless, sandbox-only storefront. This document records implemented controls and their verification; it is not a certification, a PCI assessment, or an independent penetration test.
+This project is a sandbox-payment storefront with public Cosmos content and private guest return intake. This document records implemented controls and their verification; it is not a certification, a PCI assessment, or an independent penetration test.
 
 ## Current boundaries
 
-- No accounts, admin routes, uploaded models, persisted orders, or stored payment results. The public read-only `/api/content` endpoint returns validated catalogue/site content from Cosmos. No document writes or private customer/transaction data routes have been added.
-- Customer checkout details are processed in memory and submitted to PayFast sandbox. Card details are handled by PayFast, not by this app.
+- No accounts, admin routes, uploaded models or live payments. The public read-only `/api/content` endpoint returns validated catalogue/site content from Cosmos. Private sandbox checkouts, validated transaction/event records, return cases and hashed status grants are stored in Cosmos. Browser redirects and guest-supplied fields never establish verified payment or authorize refunds.
+- Checkout stores contact details, server-priced items and the selected delivery address privately before PayFast handoff. Collection discards supplied delivery addresses. Card details are handled by PayFast, not by this app. Rates and supported provinces are server-controlled and the signed total includes delivery.
 - Sandbox-only destinations are enforced server-side, in the client handoff, and by CSP. The default merchant is PayFast's public test merchant; a private sandbox account can be configured with server environment settings.
-- Payment notifications are deliberately absent. A redirect never marks an order paid or triggers fulfilment. Live payments are outside this implementation.
-- GitHub Pages is a redirect destination, not the API host. It cannot run these server protections.
+- PayFast sandbox notifications validate signature, merchant, source, stored integer-cent amount and a fixed HTTPS server confirmation before persisting trusted transaction data. Only that callback can establish `verified-sandbox`; no real fulfilment is triggered.
+- Return, cancel and notification URLs use the Azure App Service. GitHub Pages cannot run these server protections and is no longer the payment return destination.
 
 ## Implemented controls
 
@@ -24,6 +24,28 @@ This project is a stateless, sandbox-only storefront. This document records impl
 | Supply chain         | Lockfile-based npm ci; advisory audit; weekly Dependabot checks; SHA-pinned CI actions; read-only CI token with no persisted Git credential                                        | npm audit and CI configuration                                |
 
 Transient rate counters use a process-random salt to hash client addresses and are bounded. Counters expire in memory and reset on restart. Active connection counts last only for socket lifetimes. Forwarded IP headers are not trusted; use gateway-level per-client throttling behind a reverse proxy rather than blindly accepting X-Forwarded-For.
+
+## Guest return controls
+
+Guest returns use strict server-side validation, explicit document projection, fixed server-controlled status/type/identity fields, consent confirmation and a separate submission limiter (5/address/10 minutes, 50/process/10 minutes). Contact details, explanations and order references are never included in the public receipt or operational logs. Only a successful Cosmos create, or a matching idempotent retry, issues a receipt. A conflicting UUID cannot overwrite a case. There is no public return read/list/update endpoint. The existing public-content query excludes `ReturnRequest`, and its validator also rejects that type. Deployed failures remain 503 without local storage fallback; local memory simulation is explicitly identified and bounded.
+
+There are no automatic return/refund approvals, uploaded evidence or staff notifications. Authorized staff review private Cosmos cases manually until an authenticated administration flow is designed. Customer accounts, verified order linkage, staff authorization and retention/deletion rules require separate implementation; no one may claim a case by merely knowing an email address. See the guest returns section in README.md for operation and current limitations.
+
+## Private guest tracking
+
+Saved checkout/return responses may issue a read-only status link for that record. Tokens are 256-bit cryptographically random bearer credentials; only SHA-256 hashes are stored. Links expire after seven days by default (server-configurable 1–720 hours). Server expiry and grant deletion enforce access regardless of Cosmos TTL cleanup. There is no reference/email search, token renewal or staff write endpoint. Losing the link requires support; email verification/recovery is deferred.
+
+Tokens use URL fragments so normal HTTP access logs/referrers do not contain them. The frontend removes the token from the current history entry and sends it only in the JSON body of `POST /api/tracking/view`. No cookies, localStorage or sessionStorage are used for tracking. Host/origin, JSON/body/time limits and an additional 30/address/minute, 500/process/minute limiter apply. Invalid/expired tokens receive the same 404. Views explicitly project a status, reference, timestamps and fulfilment instructions; contact details, delivery addresses, free-text return explanations, private notes, signatures and stored hashes are excluded. Links still confer access to limited status, so users are told to keep them private.
+
+Production stores private records only through the system identity in Cosmos and fails closed on outages. Local simulation is bounded to 3,000 records with 24-hour expiry and clears on restart. Snapshots use create-only idempotency; a duplicate ID with different details cannot overwrite a record. Separate partitions mean case/order/grant creation is not atomic: checkout can retry the same payload/ID, and a saved return may return a reference without a link if grant creation fails. Staff inspect/update fulfilment through authorized Cosmos tooling only. Guest tracking exposes an explicit validated sandbox payment state without returning transaction bodies or financial credentials.
+
+## Payment notification boundary
+
+`POST /api/payment/notify` is the only machine-to-machine exception to browser Origin/Fetch Metadata checks. It still enforces Host, method, form content type, UTF-8/body limits, compressed-body rejection and dedicated rate limiting. All received fields participate in ordered ITN signature verification (including empty/whitespace values); duplicates or unsigned trailing fields are rejected. Timing-safe digest comparison, merchant binding and exact stored-order amount checks precede trusted writes. Validation posts only to the fixed sandbox HTTPS URL, denies redirects and bounds time/response size. There is no live host switch or environment bypass of these checks.
+
+Source validation uses PayFast's documented IPv4 ranges. Direct/local servers use the socket peer and reject forged Referer/forwarding claims. Only a production App Service behind IISNode's named pipe trusts the rightmost entry from one Azure platform forwarding hop; an attacker-supplied prefix cannot choose the observed source. Adding another reverse proxy requires a separately reviewed trust configuration. The source ranges must be maintained against PayFast's official documentation.
+
+Transaction IDs bind a provider payment ID to one sandbox merchant/order/amount. Minimal projected financial records and immutable hashed notification events exclude raw bodies, signatures, passphrases and duplicate payer contact data. ETag conditional updates avoid lost concurrent writes. Replayed/stale failures cannot downgrade COMPLETE, and retries repair partial persistence before acknowledgement. Database/provider failures receive 503 rather than an early success. Controlled stage/status logs are stored privately outside wwwroot in `payfast.log`; no public transaction listing or guest write route exists. Public demo credentials are shared test credentials and must never protect live payments; custom sandbox credentials remain server-only.
 
 ## Run the security gate
 
@@ -57,6 +79,6 @@ The guard blocks staged env files and common private-key/token/PayFast literal p
 
 ## Before expanding scope
 
-Adding persisted orders or live payments requires a separate review of access control, retention, verified ITN processing, amount/order matching, idempotency, and fulfilment transitions. This work intentionally does not introduce any of those features.
+Live payments and fulfilment require separate credential/host configuration, staff authorization, operational reconciliation and guarded shipment/refund transitions. Current validation and records are sandbox-only; there is no automated shipment or refund integration.
 
 If a credential is exposed, rotate it in PayFast, update the server secret, restart the app, and remove it from repository history as needed. Do not paste the credential into a bug report.
